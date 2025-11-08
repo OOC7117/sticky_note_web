@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sticky Notes</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1 class="app__title">Sticky Notes</h1>
+        <p class="app__subtitle">
+          Capture quick ideas, keep important reminders, and search them instantly.
+        </p>
+      </header>
+
+      <section class="controls">
+        <form id="note-form" class="note-form" autocomplete="off">
+          <div class="note-form__group">
+            <label class="note-form__label" for="note-title">Title</label>
+            <input
+              class="note-form__input"
+              type="text"
+              id="note-title"
+              name="title"
+              placeholder="Grocery list, meeting notes, ..."
+              required
+              maxlength="60"
+            />
+          </div>
+
+          <div class="note-form__group">
+            <label class="note-form__label" for="note-content">Content</label>
+            <textarea
+              class="note-form__textarea"
+              id="note-content"
+              name="content"
+              placeholder="Type your note..."
+              rows="5"
+              required
+              maxlength="800"
+            ></textarea>
+          </div>
+
+          <button type="submit" class="note-form__submit">Add note</button>
+          <button type="button" class="note-form__cancel" hidden>Cancel edit</button>
+        </form>
+
+        <div class="search">
+          <label class="search__label" for="search-input">Search notes</label>
+          <input
+            class="search__input"
+            type="search"
+            id="search-input"
+            placeholder="Search by title or content..."
+          />
+        </div>
+      </section>
+
+      <section class="notes" aria-live="polite">
+        <ul class="notes__list" id="notes-list"></ul>
+        <p class="notes__empty" id="empty-state">No notes yet. Start by adding one above!</p>
+      </section>
+    </main>
+
+    <template id="note-template">
+      <li class="note" data-note-id="">
+        <article class="note__card">
+          <header class="note__header">
+            <h2 class="note__title"></h2>
+            <div class="note__actions">
+              <button type="button" class="note__action note__action--edit">Edit</button>
+              <button type="button" class="note__action note__action--delete">Delete</button>
+            </div>
+          </header>
+          <p class="note__content"></p>
+          <footer class="note__footer">
+            <time class="note__timestamp" datetime=""></time>
+          </footer>
+        </article>
+      </li>
+    </template>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
