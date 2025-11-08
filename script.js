@@ -13,7 +13,6 @@
 
   let notes = loadNotes();
   let editingNoteId = null;
-  let draggedNoteId = null;
 
   renderNotes();
 
@@ -67,59 +66,6 @@
       }
       renderNotes();
     }
-  });
-
-  notesList.addEventListener('dragstart', (event) => {
-    const noteElement = event.target.closest('.note');
-    if (!noteElement) {
-      return;
-    }
-
-    draggedNoteId = noteElement.dataset.noteId;
-    noteElement.classList.add('note--dragging');
-
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', draggedNoteId);
-    }
-  });
-
-  notesList.addEventListener('dragend', () => {
-    clearDragIndicators();
-    draggedNoteId = null;
-  });
-
-  notesList.addEventListener('dragover', (event) => {
-    if (!draggedNoteId) {
-      return;
-    }
-
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-
-    const noteElement = event.target.closest('.note');
-    updateDropIndicator(noteElement, event.clientY);
-  });
-
-  notesList.addEventListener('drop', (event) => {
-    if (!draggedNoteId) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const dropTarget = event.target.closest('.note');
-    const targetId = dropTarget ? dropTarget.dataset.noteId : null;
-    const shouldInsertBefore = dropTarget
-      ? event.clientY < dropTarget.getBoundingClientRect().top + dropTarget.offsetHeight / 2
-      : false;
-
-    reorderNotes(draggedNoteId, targetId, shouldInsertBefore);
-    clearDragIndicators();
-    draggedNoteId = null;
-    renderNotes();
   });
 
   function createNote({ title, content }) {
@@ -220,7 +166,6 @@
       const timestampEl = node.querySelector('.note__timestamp');
 
       node.dataset.noteId = note.id;
-      node.setAttribute('draggable', 'true');
       titleEl.textContent = note.title;
       contentEl.textContent = note.content;
 
@@ -245,66 +190,6 @@
     notesList
       .querySelectorAll('.note--highlight')
       .forEach((element) => element.classList.remove('note--highlight'));
-  }
-
-  function reorderNotes(draggedId, targetId, insertBeforeTarget) {
-    if (!draggedId || draggedId === targetId) {
-      return;
-    }
-
-    const updatedNotes = [...notes];
-    const draggedIndex = updatedNotes.findIndex((note) => note.id === draggedId);
-    if (draggedIndex === -1) {
-      return;
-    }
-
-    const [draggedNote] = updatedNotes.splice(draggedIndex, 1);
-
-    if (!targetId) {
-      updatedNotes.push(draggedNote);
-    } else {
-      const targetIndex = updatedNotes.findIndex((note) => note.id === targetId);
-
-      if (targetIndex === -1) {
-        updatedNotes.push(draggedNote);
-      } else {
-        const insertIndex = insertBeforeTarget ? targetIndex : targetIndex + 1;
-        updatedNotes.splice(insertIndex, 0, draggedNote);
-      }
-    }
-
-    notes = updatedNotes;
-    persistNotes();
-  }
-
-  function clearDragIndicators() {
-    notesList
-      .querySelectorAll('.note--dragging, .note--drop-before, .note--drop-after')
-      .forEach((element) => {
-        element.classList.remove('note--dragging');
-        element.classList.remove('note--drop-before');
-        element.classList.remove('note--drop-after');
-      });
-  }
-
-  function updateDropIndicator(targetElement, pointerY) {
-    notesList
-      .querySelectorAll('.note--drop-before, .note--drop-after')
-      .forEach((element) => {
-        element.classList.remove('note--drop-before');
-        element.classList.remove('note--drop-after');
-      });
-
-    if (!targetElement || targetElement.dataset.noteId === draggedNoteId) {
-      return;
-    }
-
-    const bounds = targetElement.getBoundingClientRect();
-    const shouldInsertBefore = pointerY < bounds.top + bounds.height / 2;
-
-    targetElement.classList.add(
-      shouldInsertBefore ? 'note--drop-before' : 'note--drop-after'
-    );
   }
 
   function formatRelativeDate(date) {

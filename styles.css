@@ -174,7 +174,6 @@ body {
   display: grid;
   gap: 0.75rem;
   box-shadow: var(--shadow);
-  position: relative;
 }
 
 .note__header {
@@ -227,30 +226,6 @@ body {
 
 .note--highlight .note__card {
   outline: 3px solid rgba(255, 177, 0, 0.6);
-}
-
-.note--dragging .note__card {
-  opacity: 0.6;
-  transform: scale(0.98);
-}
-
-.note--drop-before .note__card::before,
-.note--drop-after .note__card::after {
-  content: '';
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  height: 4px;
-  background: var(--accent);
-  border-radius: 999px;
-}
-
-.note--drop-before .note__card::before {
-  top: -10px;
-}
-
-.note--drop-after .note__card::after {
-  bottom: -10px;
 }
 
 @keyframes fade-in {
