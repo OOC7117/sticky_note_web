@@ -43,6 +43,21 @@
             ></textarea>
           </div>
 
+          <div class="note-form__group">
+            <label class="note-form__label" for="note-todos">To-dos (one per line)</label>
+            <textarea
+              class="note-form__textarea note-form__textarea--sm"
+              id="note-todos"
+              name="todos"
+              placeholder="Share agenda items, next steps, or owners..."
+              rows="3"
+              maxlength="1200"
+            ></textarea>
+            <p class="note-form__hint">
+              To-dos stay flexible — mark them as done or prioritize them right from the note.
+            </p>
+          </div>
+
           <button type="submit" class="note-form__submit">Add note</button>
           <button type="button" class="note-form__cancel" hidden>Cancel edit</button>
         </form>
@@ -103,6 +118,17 @@
           </header>
           <div class="note__palette" role="group" aria-label="Note colors"></div>
           <p class="note__content"></p>
+          <section class="note__todos" hidden>
+            <h3 class="note__todos-title">To-dos</h3>
+            <ul class="note__todo-list note__todo-list--pending"></ul>
+            <p class="note__todo-empty" hidden>All to-dos are done. Nicely handled!</p>
+            <details class="note__todo-completed" hidden>
+              <summary class="note__todo-completed-summary">
+                Completed <span class="note__todo-completed-count"></span>
+              </summary>
+              <ul class="note__todo-list note__todo-list--done"></ul>
+            </details>
+          </section>
           <footer class="note__footer">
             <time class="note__timestamp" datetime=""></time>
           </footer>

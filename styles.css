@@ -102,6 +102,16 @@ body {
   min-height: 150px;
 }
 
+.note-form__textarea--sm {
+  min-height: 120px;
+}
+
+.note-form__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .note-form__submit,
 .note-form__cancel,
 .note__action {
@@ -317,6 +327,152 @@ body {
   color: var(--text-primary);
   white-space: pre-wrap;
   line-height: 1.45;
+}
+
+.note__todos {
+  border-top: 1px dashed rgba(31, 41, 51, 0.15);
+  padding-top: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.note__todos[hidden] {
+  display: none;
+}
+
+.note__todos-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.note__todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.note__todo-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(31, 41, 51, 0.06);
+}
+
+.note__todo-item--priority {
+  background: rgba(255, 177, 0, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(236, 152, 0, 0.65);
+}
+
+.note__todo-item--completed {
+  background: rgba(31, 41, 51, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(31, 41, 51, 0.04);
+  grid-template-columns: 1fr;
+}
+
+.note__todo-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.95rem;
+}
+
+.note__todo-checkbox {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.note__todo-text {
+  display: block;
+  word-break: break-word;
+}
+
+.note__todo-text--completed {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}
+
+.note__todo-priority {
+  border: none;
+  background: transparent;
+  color: var(--accent-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.note__todo-priority:hover,
+.note__todo-priority:focus-visible {
+  background: rgba(255, 177, 0, 0.2);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.note__todo-priority[aria-pressed='true'] {
+  color: #b26200;
+}
+
+.note__todo-priority .note__todo-priority-icon {
+  pointer-events: none;
+}
+
+.note__todo-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.note__todo-empty[hidden] {
+  display: none;
+}
+
+.note__todo-completed {
+  border-radius: var(--radius-sm);
+  background: rgba(31, 41, 51, 0.04);
+  padding: 0.35rem 0.5rem 0.5rem;
+}
+
+.note__todo-completed[hidden] {
+  display: none;
+}
+
+.note__todo-completed-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.note__todo-completed-count::before {
+  content: '(';
+}
+
+.note__todo-completed-count::after {
+  content: ')';
+}
+
+.note__todo-completed[open] {
+  box-shadow: inset 0 0 0 1px rgba(31, 41, 51, 0.08);
+}
+
+.note__todo-completed[open] .note__todo-completed-summary {
+  color: var(--text-primary);
 }
 
 .note__footer {
