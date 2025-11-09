@@ -34,8 +34,6 @@
   if (undoStackContainer) {
     undoStackContainer.setAttribute('aria-hidden', 'true');
   }
-  let lastDeletedNote = null;
-  let undoTimerId = null;
   let targetedNoteId = null;
 
   renderNotes();
@@ -168,20 +166,6 @@
     }
 
     setTargetedNote(null);
-  });
-
-  undoButton.addEventListener('click', () => {
-    if (!lastDeletedNote) {
-      return;
-    }
-
-    const { note, index } = lastDeletedNote;
-    const insertIndex = Math.min(index, notes.length);
-    notes = [...notes];
-    notes.splice(insertIndex, 0, note);
-    persistNotes();
-    renderNotes();
-    clearUndoState();
   });
 
   notesList.addEventListener('dragstart', (event) => {
@@ -351,29 +335,6 @@
     const message = node.querySelector('.undo-snackbar__message');
     const undoButton = node.querySelector('.undo-snackbar__action--undo');
     const closeButton = node.querySelector('.undo-snackbar__close');
-
-    if (message) {
-      message.textContent = `Deleted "${deleted.note.title}"`;
-    }
-
-    const notification = {
-      id: crypto.randomUUID(),
-      deleted,
-      element: node,
-    };
-
-    if (undoButton) {
-      undoButton.addEventListener('click', () => {
-        handleUndoAction(notification.id);
-      });
-    }
-
-    if (closeButton) {
-      closeButton.addEventListener('click', () => {
-        dismissUndoNotification(notification.id);
-      });
-    }
-
 
     if (message) {
       message.textContent = `Deleted "${deleted.note.title}"`;
