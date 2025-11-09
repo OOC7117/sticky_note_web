@@ -120,8 +120,20 @@
           <p class="note__content"></p>
           <section class="note__todos" hidden>
             <h3 class="note__todos-title">To-dos</h3>
+            <form class="note__todo-inline-form" novalidate>
+              <input
+                type="text"
+                class="note__todo-inline-input"
+                placeholder="Add a to-do"
+                aria-label="Add a to-do"
+                maxlength="200"
+              />
+              <button type="submit" class="note__todo-inline-submit">Add</button>
+            </form>
             <ul class="note__todo-list note__todo-list--pending"></ul>
-            <p class="note__todo-empty" hidden>All to-dos are done. Nicely handled!</p>
+            <p class="note__todo-empty" hidden>
+              No to-dos yet. Add one above to get started.
+            </p>
             <details class="note__todo-completed" hidden>
               <summary class="note__todo-completed-summary">
                 Completed <span class="note__todo-completed-count"></span>

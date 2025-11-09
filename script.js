@@ -32,6 +32,7 @@
   let draggedNoteId = null;
   const undoNotifications = [];
   const completedSectionOpenState = new Map();
+  let pendingInlineFocus = null;
 
   if (undoStackContainer) {
     undoStackContainer.setAttribute('aria-hidden', 'true');
@@ -120,6 +121,25 @@
 
       event.preventDefault();
       toggleTodoPriority(noteId, todoItem.dataset.todoId);
+      renderNotes();
+      return;
+    }
+
+    const removeButton = event.target.closest('button.note__todo-remove');
+    if (removeButton) {
+      if (!noteElement) {
+        return;
+      }
+
+      const noteId = noteElement.dataset.noteId;
+      const todoItem = removeButton.closest('[data-todo-id]');
+      if (!noteId || !todoItem || !todoItem.dataset.todoId) {
+        return;
+      }
+
+      event.preventDefault();
+      pendingInlineFocus = noteId;
+      removeTodo(noteId, todoItem.dataset.todoId);
       renderNotes();
       return;
     }
@@ -301,6 +321,45 @@
     reorderNotes(draggedNoteId, targetId, insertBefore);
     clearDragIndicators();
     draggedNoteId = null;
+    renderNotes();
+  });
+
+  notesList.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    if (!form.classList.contains('note__todo-inline-form')) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const noteElement = form.closest('[data-note-id]');
+    if (!noteElement) {
+      return;
+    }
+
+    const noteId = noteElement.dataset.noteId;
+    if (!noteId) {
+      return;
+    }
+
+    const input = form.querySelector('.note__todo-inline-input');
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const added = addTodoInline(noteId, input.value);
+    if (!added) {
+      input.value = '';
+      input.focus();
+      return;
+    }
+
+    pendingInlineFocus = noteId;
+    input.value = '';
     renderNotes();
   });
 
@@ -575,6 +634,7 @@
     if (filteredNotes.length === 0) {
       emptyState.hidden = false;
       applyTargetedState();
+      pendingInlineFocus = null;
       return;
     }
 
@@ -614,6 +674,168 @@
         editingElement.classList.add('note--highlight');
       }
     }
+
+    if (pendingInlineFocus) {
+      const focusTarget = notesList.querySelector(
+        `[data-note-id="${pendingInlineFocus}"] .note__todo-inline-input`
+      );
+      pendingInlineFocus = null;
+      if (focusTarget instanceof HTMLInputElement) {
+        focusTarget.focus();
+      }
+    }
+  }
+
+  function renderTodos(section, note) {
+    if (!section) {
+      return;
+    }
+
+    const pendingList = section.querySelector('.note__todo-list--pending');
+    const completedList = section.querySelector('.note__todo-list--done');
+    const emptyMessage = section.querySelector('.note__todo-empty');
+    const completedDetails = section.querySelector('.note__todo-completed');
+    const completedCount = section.querySelector('.note__todo-completed-count');
+    const inlineInput = section.querySelector('.note__todo-inline-input');
+
+    if (
+      !pendingList ||
+      !completedList ||
+      !emptyMessage ||
+      !completedDetails ||
+      !completedCount
+    ) {
+      return;
+    }
+
+    pendingList.innerHTML = '';
+    completedList.innerHTML = '';
+
+    const todos = Array.isArray(note.todos) ? note.todos : [];
+
+    if (todos.length === 0) {
+      section.hidden = false;
+      emptyMessage.hidden = false;
+      emptyMessage.textContent = 'No to-dos yet. Add one above to get started.';
+      completedDetails.hidden = true;
+      completedDetails.open = false;
+      completedCount.textContent = '0';
+      completedSectionOpenState.delete(note.id);
+      if (inlineInput instanceof HTMLInputElement) {
+        inlineInput.value = '';
+      }
+      return;
+    }
+
+    section.hidden = false;
+
+    const pending = todos.filter((todo) => !todo.completed);
+    const completed = todos.filter((todo) => todo.completed);
+
+    pending.forEach((todo) => {
+      pendingList.appendChild(createTodoListItem(todo));
+    });
+
+    if (pending.length === 0) {
+      emptyMessage.hidden = false;
+      emptyMessage.textContent = 'All to-dos are done. Nicely handled!';
+    } else {
+      emptyMessage.hidden = true;
+    }
+
+    if (completed.length === 0) {
+      completedDetails.hidden = true;
+      completedDetails.open = false;
+      completedCount.textContent = '0';
+      completedSectionOpenState.delete(note.id);
+    } else {
+      completedDetails.hidden = false;
+      completedCount.textContent = String(completed.length);
+      completed.forEach((todo) => {
+        completedList.appendChild(createTodoListItem(todo));
+      });
+
+      if (completedSectionOpenState.has(note.id)) {
+        completedDetails.open = true;
+      } else {
+        completedDetails.open = false;
+      }
+    }
+
+    if (inlineInput instanceof HTMLInputElement) {
+      inlineInput.value = '';
+    }
+  }
+
+  function createTodoListItem(todo) {
+    const item = document.createElement('li');
+    item.className = 'note__todo-item';
+    item.dataset.todoId = todo.id;
+
+    if (todo.priority && !todo.completed) {
+      item.classList.add('note__todo-item--priority');
+    }
+
+    if (todo.completed) {
+      item.classList.add('note__todo-item--completed');
+    }
+
+    const label = document.createElement('label');
+    label.className = 'note__todo-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'note__todo-checkbox';
+    checkbox.checked = Boolean(todo.completed);
+
+    const text = document.createElement('span');
+    text.className = todo.completed
+      ? 'note__todo-text note__todo-text--completed'
+      : 'note__todo-text';
+    text.textContent = todo.text;
+
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    item.appendChild(label);
+
+    const actions = document.createElement('div');
+    actions.className = 'note__todo-actions';
+
+    if (!todo.completed) {
+      const priorityButton = document.createElement('button');
+      priorityButton.type = 'button';
+      priorityButton.className = 'note__todo-priority';
+      priorityButton.setAttribute('aria-pressed', String(Boolean(todo.priority)));
+      priorityButton.title = todo.priority
+        ? 'Remove priority'
+        : 'Mark as priority';
+      priorityButton.setAttribute(
+        'aria-label',
+        todo.priority
+          ? `Remove priority from "${todo.text}"`
+          : `Mark "${todo.text}" as priority`
+      );
+
+      const icon = document.createElement('span');
+      icon.className = 'note__todo-priority-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = '⚑';
+
+      priorityButton.appendChild(icon);
+      actions.appendChild(priorityButton);
+    }
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'note__todo-remove';
+    removeButton.title = `Delete "${todo.text}"`;
+    removeButton.setAttribute('aria-label', `Delete "${todo.text}"`);
+    removeButton.textContent = 'Delete';
+
+    actions.appendChild(removeButton);
+    item.appendChild(actions);
+
+    return item;
   }
 
   function renderTodos(section, note) {
@@ -838,6 +1060,23 @@
     );
   }
 
+  function addTodoInline(noteId, text) {
+    const normalized = normalizeTodoText(text);
+    if (!normalized) {
+      return false;
+    }
+
+    const note = findNoteById(noteId);
+    if (!note) {
+      return false;
+    }
+
+    const currentTodos = Array.isArray(note.todos) ? note.todos : [];
+    const newTodo = createTodoFromText(normalized);
+    updateNote(noteId, { todos: [...currentTodos, newTodo] });
+    return true;
+  }
+
   function updateNoteTodos(noteId, updater) {
     const note = findNoteById(noteId);
     if (!note) {
@@ -853,6 +1092,10 @@
     updateNote(noteId, { todos: nextTodos });
   }
 
+  function removeTodo(noteId, todoId) {
+    updateNoteTodos(noteId, (todos) => todos.filter((todo) => todo.id !== todoId));
+  }
+
   function parseTodoInput(rawValue, previousTodos = []) {
     if (typeof rawValue !== 'string') {
       return sanitizeTodos(previousTodos);
@@ -860,7 +1103,7 @@
 
     const lines = rawValue
       .split('\n')
-      .map((line) => line.trim())
+      .map((line) => normalizeTodoText(line))
       .filter((line) => line.length > 0);
 
     if (lines.length === 0) {
@@ -922,8 +1165,7 @@
           return null;
         }
 
-        const text =
-          typeof todo.text === 'string' ? todo.text.trim().replace(/\s+/g, ' ') : '';
+        const text = normalizeTodoText(todo.text);
         if (!text) {
           return null;
         }
@@ -959,6 +1201,25 @@
       .filter(Boolean);
 
     return sortTodos(sanitized);
+  }
+
+  function createTodoFromText(text) {
+    return {
+      id: crypto.randomUUID(),
+      text,
+      completed: false,
+      priority: false,
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+    };
+  }
+
+  function normalizeTodoText(value) {
+    if (typeof value !== 'string') {
+      return '';
+    }
+
+    return value.trim().replace(/\s+/g, ' ');
   }
 
   function sortTodos(todos) {
