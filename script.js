@@ -27,6 +27,7 @@
   let draggedNoteId = null;
   let lastDeletedNote = null;
   let undoTimerId = null;
+  let targetedNoteId = null;
 
   renderNotes();
 
@@ -59,9 +60,13 @@
   });
 
   notesList.addEventListener('click', (event) => {
+    const noteElement = event.target.closest('[data-note-id]');
+    if (noteElement) {
+      setTargetedNote(noteElement.dataset.noteId);
+    }
+
     const colorButton = event.target.closest('button.note__color');
     if (colorButton) {
-      const noteElement = colorButton.closest('[data-note-id]');
       if (!noteElement) {
         return;
       }
@@ -82,7 +87,6 @@
       return;
     }
 
-    const noteElement = actionButton.closest('[data-note-id]');
     if (!noteElement) {
       return;
     }
@@ -94,6 +98,66 @@
     } else if (actionButton.classList.contains('note__action--delete')) {
       handleDelete(noteId);
     }
+  });
+
+  notesList.addEventListener('focusin', (event) => {
+    const noteElement = event.target.closest('.note');
+    if (!noteElement) {
+      return;
+    }
+
+    noteElement.classList.add('note--focused');
+  });
+
+  notesList.addEventListener('focusout', (event) => {
+    const noteElement = event.target.closest('.note');
+    if (!noteElement) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (!noteElement.contains(document.activeElement)) {
+        noteElement.classList.remove('note--focused');
+      }
+    });
+  });
+
+  notesList.addEventListener('keydown', (event) => {
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.classList.contains('note') &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      event.preventDefault();
+      const noteId = event.target.dataset.noteId;
+      if (noteId) {
+        setTargetedNote(noteId);
+      }
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!targetedNoteId) {
+      return;
+    }
+
+    if (event.target instanceof Element && event.target.closest('.note')) {
+      return;
+    }
+
+    setTargetedNote(null);
+  });
+
+  document.addEventListener('focusin', (event) => {
+    if (!targetedNoteId) {
+      return;
+    }
+
+    if (event.target instanceof Element && event.target.closest('.note')) {
+      return;
+    }
+
+    setTargetedNote(null);
   });
 
   undoButton.addEventListener('click', () => {
@@ -140,8 +204,7 @@
       event.dataTransfer.dropEffect = 'move';
     }
 
-    const noteElement = event.target.closest('.note');
-    updateDropIndicator(noteElement, event.clientY);
+    updateDropIndicator(event.clientY);
   });
 
   notesList.addEventListener('drop', (event) => {
@@ -151,13 +214,10 @@
 
     event.preventDefault();
 
-    const dropTarget = event.target.closest('.note');
+    const { element: dropTarget, insertBefore } = determineDropPosition(event.clientY);
     const targetId = dropTarget ? dropTarget.dataset.noteId : null;
-    const shouldInsertBefore = dropTarget
-      ? event.clientY < dropTarget.getBoundingClientRect().top + dropTarget.offsetHeight / 2
-      : false;
 
-    reorderNotes(draggedNoteId, targetId, shouldInsertBefore);
+    reorderNotes(draggedNoteId, targetId, insertBefore);
     clearDragIndicators();
     draggedNoteId = null;
     renderNotes();
@@ -189,6 +249,10 @@
     const deleted = deleteNote(id);
     if (!deleted) {
       return;
+    }
+
+    if (targetedNoteId === id) {
+      targetedNoteId = null;
     }
 
     if (editingNoteId === id) {
@@ -307,6 +371,7 @@
 
     if (filteredNotes.length === 0) {
       emptyState.hidden = false;
+      applyTargetedState();
       return;
     }
 
@@ -333,6 +398,8 @@
 
       notesList.appendChild(node);
     });
+
+    applyTargetedState();
 
     if (editingNoteId) {
       const editingElement = notesList.querySelector(
@@ -387,6 +454,37 @@
       .forEach((element) => element.classList.remove('note--highlight'));
   }
 
+  function setTargetedNote(id) {
+    if (!id) {
+      targetedNoteId = null;
+      applyTargetedState();
+      return;
+    }
+
+    targetedNoteId = id;
+    applyTargetedState();
+  }
+
+  function applyTargetedState() {
+    notesList
+      .querySelectorAll('.note--targeted')
+      .forEach((element) => element.classList.remove('note--targeted'));
+
+    if (!targetedNoteId) {
+      return;
+    }
+
+    const targetedElement = notesList.querySelector(
+      `[data-note-id="${targetedNoteId}"]`
+    );
+
+    if (targetedElement) {
+      targetedElement.classList.add('note--targeted');
+    } else {
+      targetedNoteId = null;
+    }
+  }
+
   function reorderNotes(draggedId, targetId, insertBeforeTarget) {
     if (!draggedId || draggedId === targetId) {
       return;
@@ -427,7 +525,7 @@
       });
   }
 
-  function updateDropIndicator(targetElement, pointerY) {
+  function updateDropIndicator(pointerY) {
     notesList
       .querySelectorAll('.note--drop-before, .note--drop-after')
       .forEach((element) => {
@@ -435,16 +533,41 @@
         element.classList.remove('note--drop-after');
       });
 
-    if (!targetElement || targetElement.dataset.noteId === draggedNoteId) {
+    const { element, insertBefore } = determineDropPosition(pointerY);
+    if (!element) {
       return;
     }
 
-    const bounds = targetElement.getBoundingClientRect();
-    const shouldInsertBefore = pointerY < bounds.top + bounds.height / 2;
+    element.classList.add(insertBefore ? 'note--drop-before' : 'note--drop-after');
+  }
 
-    targetElement.classList.add(
-      shouldInsertBefore ? 'note--drop-before' : 'note--drop-after'
-    );
+  function determineDropPosition(pointerY) {
+    if (typeof pointerY !== 'number') {
+      return { element: null, insertBefore: false };
+    }
+
+    const noteElements = Array.from(notesList.querySelectorAll('.note'));
+
+    let fallbackElement = null;
+    let fallbackInsertBefore = false;
+
+    for (const element of noteElements) {
+      if (element.dataset.noteId === draggedNoteId) {
+        continue;
+      }
+
+      const bounds = element.getBoundingClientRect();
+      const midpoint = bounds.top + bounds.height / 2;
+
+      if (pointerY < midpoint) {
+        return { element, insertBefore: true };
+      }
+
+      fallbackElement = element;
+      fallbackInsertBefore = false;
+    }
+
+    return { element: fallbackElement, insertBefore: fallbackInsertBefore };
   }
 
   function formatRelativeDate(date) {
