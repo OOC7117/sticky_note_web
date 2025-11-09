@@ -197,9 +197,9 @@ body {
   --card-border: #b8d8ff;
 }
 
-.note[data-color='lavender'] .note__card {
-  --card-color: #f1ecff;
-  --card-border: #cbc2ff;
+.note[data-color='mist'] .note__card {
+  --card-color: #f1f5f9;
+  --card-border: #d0dce6;
 }
 
 .note__header {
@@ -282,8 +282,8 @@ body {
   color: #b8d8ff;
 }
 
-.note__color[data-color='lavender'] {
-  color: #cbc2ff;
+.note__color[data-color='mist'] {
+  color: #d0dce6;
 }
 
 .note__action:hover {
