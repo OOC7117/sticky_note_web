@@ -197,9 +197,9 @@ body {
   --card-border: #b8d8ff;
 }
 
-.note[data-color='lavender'] .note__card {
-  --card-color: #f1ecff;
-  --card-border: #cbc2ff;
+.note[data-color='mist'] .note__card {
+  --card-color: #f1f5f9;
+  --card-border: #d0dce6;
 }
 
 .note__header {
@@ -303,8 +303,8 @@ body {
   color: #b8d8ff;
 }
 
-.note__color[data-color='lavender'] {
-  color: #cbc2ff;
+.note__color[data-color='mist'] {
+  color: #d0dce6;
 }
 
 .note__action:hover {
@@ -378,33 +378,54 @@ body {
   left: auto;
 }
 
-.undo-snackbar {
+.undo-stack {
   position: fixed;
-  left: 50%;
+  right: 1.5rem;
   bottom: 1.5rem;
-  transform: translateX(-50%) translateY(150%);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: rgba(17, 25, 40, 0.9);
-  color: #f8fafc;
-  border-radius: 999px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
-  transition: transform var(--transition), opacity var(--transition);
-  opacity: 0;
+  display: grid;
+  gap: 0;
+  justify-items: end;
+  width: min(100%, 24rem);
   pointer-events: none;
   z-index: 1000;
 }
 
-.undo-snackbar--visible {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
+.undo-stack:empty {
+  display: none;
+}
+
+.undo-snackbar {
+  --stack-index: 0;
+  --stack-visual-index: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
+  background: rgba(17, 25, 40, 0.92);
+  color: #f8fafc;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+  grid-area: 1 / 1 / 2 / 2;
+  transform: translateY(calc(var(--stack-visual-index) * -12px))
+    scale(calc(1 - var(--stack-visual-index) * 0.05));
+  opacity: calc(1 - var(--stack-visual-index) * 0.12);
+  transition: transform var(--transition), opacity var(--transition);
   pointer-events: auto;
+  z-index: calc(100 - var(--stack-index));
+  min-width: 0;
 }
 
 .undo-snackbar__message {
   font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.undo-snackbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .undo-snackbar__action {
@@ -413,7 +434,7 @@ body {
   background: rgba(248, 250, 252, 0.15);
   color: #facc15;
   border-radius: 999px;
-  padding: 0.35rem 0.75rem;
+  padding: 0.35rem 0.85rem;
   cursor: pointer;
   transition: background var(--transition), color var(--transition);
 }
@@ -422,6 +443,29 @@ body {
 .undo-snackbar__action:focus-visible {
   background: rgba(248, 250, 252, 0.3);
   color: #fde047;
+  outline: none;
+}
+
+.undo-snackbar__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.65);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.undo-snackbar__close:hover,
+.undo-snackbar__close:focus-visible {
+  background: rgba(248, 250, 252, 0.18);
+  color: #f8fafc;
   outline: none;
 }
 
@@ -443,5 +487,18 @@ body {
 
   .controls {
     padding: 1.25rem;
+  }
+
+  .undo-stack {
+    left: 50%;
+    right: auto;
+    width: calc(100% - 2rem);
+    transform: translateX(-50%);
+    align-items: center;
+  }
+
+  .undo-snackbar {
+    width: 100%;
+    justify-content: space-between;
   }
 }
