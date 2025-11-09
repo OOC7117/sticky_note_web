@@ -65,15 +65,31 @@
     </main>
 
     <div
-      class="undo-snackbar"
-      id="undo-snackbar"
-      role="status"
-      aria-live="polite"
-      aria-hidden="true"
-    >
-      <span class="undo-snackbar__message" id="undo-message">Note deleted</span>
-      <button type="button" class="undo-snackbar__action" id="undo-button">Undo</button>
-    </div>
+      class="undo-stack"
+      id="undo-stack"
+      role="region"
+      aria-live="assertive"
+      aria-label="Undo notifications"
+    ></div>
+
+    <template id="undo-snackbar-template">
+      <div class="undo-snackbar" role="status">
+        <span class="undo-snackbar__message"></span>
+        <div class="undo-snackbar__actions">
+          <button type="button" class="undo-snackbar__action undo-snackbar__action--undo">
+            Undo
+          </button>
+          <button
+            type="button"
+            class="undo-snackbar__close"
+            aria-label="Dismiss notification"
+            title="Dismiss notification"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+    </template>
 
     <template id="note-template">
       <li class="note" data-note-id="">

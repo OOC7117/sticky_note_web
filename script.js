@@ -18,15 +18,17 @@
   const notesList = document.querySelector('#notes-list');
   const emptyState = document.querySelector('#empty-state');
   const noteTemplate = document.querySelector('#note-template');
-  const undoSnackbar = document.querySelector('#undo-snackbar');
-  const undoMessage = document.querySelector('#undo-message');
-  const undoButton = document.querySelector('#undo-button');
+  const undoStackContainer = document.querySelector('#undo-stack');
+  const undoSnackbarTemplate = document.querySelector('#undo-snackbar-template');
 
   let notes = loadNotes();
   let editingNoteId = null;
   let draggedNoteId = null;
-  let lastDeletedNote = null;
-  let undoTimerId = null;
+  const undoNotifications = [];
+
+  if (undoStackContainer) {
+    undoStackContainer.setAttribute('aria-hidden', 'true');
+  }
 
   renderNotes();
 
@@ -45,6 +47,7 @@
       createNote({ title, content });
     }
 
+    clearAllUndoNotifications();
     resetForm();
     renderNotes();
   });
@@ -94,20 +97,6 @@
     } else if (actionButton.classList.contains('note__action--delete')) {
       handleDelete(noteId);
     }
-  });
-
-  undoButton.addEventListener('click', () => {
-    if (!lastDeletedNote) {
-      return;
-    }
-
-    const { note, index } = lastDeletedNote;
-    const insertIndex = Math.min(index, notes.length);
-    notes = [...notes];
-    notes.splice(insertIndex, 0, note);
-    persistNotes();
-    renderNotes();
-    clearUndoState();
   });
 
   notesList.addEventListener('dragstart', (event) => {
@@ -218,6 +207,7 @@
       return;
     }
 
+    clearAllUndoNotifications();
     editingNoteId = note.id;
     titleInput.value = note.title;
     contentInput.value = note.content;
@@ -266,30 +256,132 @@
   }
 
   function showUndoNotification(deleted) {
-    const { note } = deleted;
-    lastDeletedNote = deleted;
-    undoMessage.textContent = `Deleted "${note.title}"`;
-    undoSnackbar.classList.add('undo-snackbar--visible');
-    undoSnackbar.removeAttribute('aria-hidden');
-
-    if (undoTimerId) {
-      clearTimeout(undoTimerId);
+    if (!undoStackContainer || !undoSnackbarTemplate) {
+      return;
     }
 
-    undoTimerId = window.setTimeout(() => {
-      clearUndoState();
-    }, 5000);
+    const node = undoSnackbarTemplate.content.firstElementChild.cloneNode(true);
+    const message = node.querySelector('.undo-snackbar__message');
+    const undoButton = node.querySelector('.undo-snackbar__action--undo');
+    const closeButton = node.querySelector('.undo-snackbar__close');
+
+    if (message) {
+      message.textContent = `Deleted "${deleted.note.title}"`;
+    }
+
+    const notification = {
+      id: crypto.randomUUID(),
+      deleted,
+      element: node,
+    };
+
+    if (undoButton) {
+      undoButton.addEventListener('click', () => {
+        handleUndoAction(notification.id);
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        dismissUndoNotification(notification.id);
+      });
+    }
+
+    undoNotifications.push(notification);
+    undoStackContainer.appendChild(node);
+    updateUndoStackPositions();
+
+    if (undoButton) {
+      window.requestAnimationFrame(() => {
+        undoButton.focus();
+      });
+    }
   }
 
-  function clearUndoState() {
-    if (undoTimerId) {
-      clearTimeout(undoTimerId);
-      undoTimerId = null;
+  function handleUndoAction(notificationId) {
+    const index = undoNotifications.findIndex((item) => item.id === notificationId);
+    if (index === -1) {
+      return;
     }
 
-    lastDeletedNote = null;
-    undoSnackbar.classList.remove('undo-snackbar--visible');
-    undoSnackbar.setAttribute('aria-hidden', 'true');
+    const { note, index: originalIndex } = undoNotifications[index].deleted;
+    const insertIndex = Math.min(originalIndex, notes.length);
+    notes = [...notes];
+    notes.splice(insertIndex, 0, note);
+    persistNotes();
+    renderNotes();
+    dismissUndoNotification(notificationId);
+  }
+
+  function dismissUndoNotification(notificationId) {
+    const index = undoNotifications.findIndex((item) => item.id === notificationId);
+    if (index === -1) {
+      return;
+    }
+
+    const [notification] = undoNotifications.splice(index, 1);
+    const shouldRefocus = notification.element
+      ? notification.element.contains(document.activeElement)
+      : false;
+    if (notification.element && notification.element.parentElement) {
+      notification.element.parentElement.removeChild(notification.element);
+    }
+
+    updateUndoStackPositions();
+
+    if (shouldRefocus) {
+      focusFrontUndoButton();
+    }
+  }
+
+  function clearAllUndoNotifications() {
+    if (!undoStackContainer || undoNotifications.length === 0) {
+      return;
+    }
+
+    undoNotifications.forEach((notification) => {
+      if (notification.element && notification.element.parentElement) {
+        notification.element.parentElement.removeChild(notification.element);
+      }
+    });
+
+    undoNotifications.length = 0;
+    updateUndoStackPositions();
+  }
+
+  function updateUndoStackPositions() {
+    if (!undoStackContainer) {
+      return;
+    }
+
+    undoNotifications.forEach((notification, index) => {
+      if (!notification.element) {
+        return;
+      }
+
+      const stackIndex = undoNotifications.length - 1 - index;
+      const visualIndex = Math.min(stackIndex, 4);
+      notification.element.style.setProperty('--stack-index', `${stackIndex}`);
+      notification.element.style.setProperty('--stack-visual-index', `${visualIndex}`);
+    });
+
+    if (undoNotifications.length === 0) {
+      undoStackContainer.setAttribute('aria-hidden', 'true');
+    } else {
+      undoStackContainer.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function focusFrontUndoButton() {
+    const frontNotification = undoNotifications[undoNotifications.length - 1];
+    if (!frontNotification || !frontNotification.element) {
+      return;
+    }
+
+    const undoButton = frontNotification.element.querySelector('.undo-snackbar__action--undo');
+    if (undoButton) {
+      undoButton.focus();
+    }
   }
 
   function renderNotes() {
