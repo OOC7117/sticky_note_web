@@ -64,6 +64,17 @@
       </section>
     </main>
 
+    <div
+      class="undo-snackbar"
+      id="undo-snackbar"
+      role="status"
+      aria-live="polite"
+      aria-hidden="true"
+    >
+      <span class="undo-snackbar__message" id="undo-message">Note deleted</span>
+      <button type="button" class="undo-snackbar__action" id="undo-button">Undo</button>
+    </div>
+
     <template id="note-template">
       <li class="note" data-note-id="">
         <article class="note__card">

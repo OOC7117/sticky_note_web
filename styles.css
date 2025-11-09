@@ -256,6 +256,53 @@ body {
   left: auto;
 }
 
+.undo-snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%) translateY(150%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(17, 25, 40, 0.9);
+  color: #f8fafc;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+  transition: transform var(--transition), opacity var(--transition);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.undo-snackbar--visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.undo-snackbar__message {
+  font-size: 0.95rem;
+}
+
+.undo-snackbar__action {
+  font: inherit;
+  border: none;
+  background: rgba(248, 250, 252, 0.15);
+  color: #facc15;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.undo-snackbar__action:hover,
+.undo-snackbar__action:focus-visible {
+  background: rgba(248, 250, 252, 0.3);
+  color: #fde047;
+  outline: none;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
