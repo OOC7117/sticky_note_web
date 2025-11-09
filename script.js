@@ -10,10 +10,15 @@
   const notesList = document.querySelector('#notes-list');
   const emptyState = document.querySelector('#empty-state');
   const noteTemplate = document.querySelector('#note-template');
+  const undoSnackbar = document.querySelector('#undo-snackbar');
+  const undoMessage = document.querySelector('#undo-message');
+  const undoButton = document.querySelector('#undo-button');
 
   let notes = loadNotes();
   let editingNoteId = null;
   let draggedNoteId = null;
+  let lastDeletedNote = null;
+  let undoTimerId = null;
 
   renderNotes();
 
@@ -61,12 +66,22 @@
     if (actionButton.classList.contains('note__action--edit')) {
       beginEdit(noteId);
     } else if (actionButton.classList.contains('note__action--delete')) {
-      deleteNote(noteId);
-      if (editingNoteId === noteId) {
-        resetForm();
-      }
-      renderNotes();
+      handleDelete(noteId);
     }
+  });
+
+  undoButton.addEventListener('click', () => {
+    if (!lastDeletedNote) {
+      return;
+    }
+
+    const { note, index } = lastDeletedNote;
+    const insertIndex = Math.min(index, notes.length);
+    notes = [...notes];
+    notes.splice(insertIndex, 0, note);
+    persistNotes();
+    renderNotes();
+    clearUndoState();
   });
 
   notesList.addEventListener('dragstart', (event) => {
@@ -143,9 +158,31 @@
     persistNotes();
   }
 
+  function handleDelete(id) {
+    const deleted = deleteNote(id);
+    if (!deleted) {
+      return;
+    }
+
+    if (editingNoteId === id) {
+      resetForm();
+    }
+
+    renderNotes();
+    showUndoNotification(deleted);
+  }
+
   function deleteNote(id) {
-    notes = notes.filter((note) => note.id !== id);
+    const index = notes.findIndex((note) => note.id === id);
+    if (index === -1) {
+      return null;
+    }
+
+    const updatedNotes = [...notes];
+    const [removedNote] = updatedNotes.splice(index, 1);
+    notes = updatedNotes;
     persistNotes();
+    return { note: removedNote, index };
   }
 
   function beginEdit(id) {
@@ -191,6 +228,33 @@
 
   function persistNotes() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  }
+
+  function showUndoNotification(deleted) {
+    const { note } = deleted;
+    lastDeletedNote = deleted;
+    undoMessage.textContent = `Deleted "${note.title}"`;
+    undoSnackbar.classList.add('undo-snackbar--visible');
+    undoSnackbar.removeAttribute('aria-hidden');
+
+    if (undoTimerId) {
+      clearTimeout(undoTimerId);
+    }
+
+    undoTimerId = window.setTimeout(() => {
+      clearUndoState();
+    }, 5000);
+  }
+
+  function clearUndoState() {
+    if (undoTimerId) {
+      clearTimeout(undoTimerId);
+      undoTimerId = null;
+    }
+
+    lastDeletedNote = null;
+    undoSnackbar.classList.remove('undo-snackbar--visible');
+    undoSnackbar.setAttribute('aria-hidden', 'true');
   }
 
   function renderNotes() {
