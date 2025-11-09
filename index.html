@@ -120,7 +120,20 @@
           <p class="note__content"></p>
           <section class="note__todos" hidden>
             <h3 class="note__todos-title">To-dos</h3>
-            <form class="note__todo-inline-form" novalidate>
+            <ul class="note__todo-list note__todo-list--pending"></ul>
+            <p class="note__todo-empty" hidden>
+              No to-dos yet. Use the link below to add one.
+            </p>
+            <details class="note__todo-completed" hidden>
+              <summary class="note__todo-completed-summary">
+                Completed <span class="note__todo-completed-count"></span>
+              </summary>
+              <ul class="note__todo-list note__todo-list--done"></ul>
+            </details>
+            <button type="button" class="note__todo-inline-toggle note__todo-inline-toggle--hidden">
+              + Add a to-do
+            </button>
+            <form class="note__todo-inline-form note__todo-inline-form--collapsed" novalidate>
               <input
                 type="text"
                 class="note__todo-inline-input"
@@ -130,16 +143,6 @@
               />
               <button type="submit" class="note__todo-inline-submit">Add</button>
             </form>
-            <ul class="note__todo-list note__todo-list--pending"></ul>
-            <p class="note__todo-empty" hidden>
-              No to-dos yet. Add one above to get started.
-            </p>
-            <details class="note__todo-completed" hidden>
-              <summary class="note__todo-completed-summary">
-                Completed <span class="note__todo-completed-count"></span>
-              </summary>
-              <ul class="note__todo-list note__todo-list--done"></ul>
-            </details>
           </section>
           <footer class="note__footer">
             <time class="note__timestamp" datetime=""></time>

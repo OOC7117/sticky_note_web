@@ -33,6 +33,7 @@
   const undoNotifications = [];
   const completedSectionOpenState = new Map();
   let pendingInlineFocus = null;
+  const expandedTodoInlineInputs = new Set();
 
   if (undoStackContainer) {
     undoStackContainer.setAttribute('aria-hidden', 'true');
@@ -88,6 +89,24 @@
     const noteElement = event.target.closest('[data-note-id]');
     if (noteElement) {
       setTargetedNote(noteElement.dataset.noteId);
+    }
+
+    const inlineToggleButton = event.target.closest('button.note__todo-inline-toggle');
+    if (inlineToggleButton) {
+      if (!noteElement) {
+        return;
+      }
+
+      const noteId = noteElement.dataset.noteId;
+      if (!noteId) {
+        return;
+      }
+
+      event.preventDefault();
+      expandedTodoInlineInputs.add(noteId);
+      pendingInlineFocus = noteId;
+      renderNotes();
+      return;
     }
 
     const colorButton = event.target.closest('button.note__color');
@@ -359,6 +378,7 @@
     }
 
     pendingInlineFocus = noteId;
+    expandedTodoInlineInputs.add(noteId);
     input.value = '';
     renderNotes();
   });
@@ -631,10 +651,23 @@
 
     notesList.innerHTML = '';
 
+    const visibleIds = new Set(filteredNotes.map((note) => note.id));
+    expandedTodoInlineInputs.forEach((id) => {
+      if (!visibleIds.has(id)) {
+        expandedTodoInlineInputs.delete(id);
+      }
+    });
+
+    if (targetedNoteId && !visibleIds.has(targetedNoteId)) {
+      targetedNoteId = null;
+    }
+
     if (filteredNotes.length === 0) {
       emptyState.hidden = false;
       applyTargetedState();
       pendingInlineFocus = null;
+      expandedTodoInlineInputs.clear();
+      updateInlineFormState();
       return;
     }
 
@@ -684,6 +717,8 @@
         focusTarget.focus();
       }
     }
+
+    updateInlineFormState();
   }
 
   function renderTodos(section, note) {
@@ -696,39 +731,26 @@
     const emptyMessage = section.querySelector('.note__todo-empty');
     const completedDetails = section.querySelector('.note__todo-completed');
     const completedCount = section.querySelector('.note__todo-completed-count');
-    const inlineInput = section.querySelector('.note__todo-inline-input');
+    const inlineForm = section.querySelector('.note__todo-inline-form');
+    const inlineToggle = section.querySelector('.note__todo-inline-toggle');
 
     if (
       !pendingList ||
       !completedList ||
       !emptyMessage ||
       !completedDetails ||
-      !completedCount
+      !completedCount ||
+      !(inlineForm instanceof HTMLFormElement) ||
+      !(inlineToggle instanceof HTMLButtonElement)
     ) {
       return;
     }
 
     pendingList.innerHTML = '';
     completedList.innerHTML = '';
-
-    const todos = Array.isArray(note.todos) ? note.todos : [];
-
-    if (todos.length === 0) {
-      section.hidden = false;
-      emptyMessage.hidden = false;
-      emptyMessage.textContent = 'No to-dos yet. Add one above to get started.';
-      completedDetails.hidden = true;
-      completedDetails.open = false;
-      completedCount.textContent = '0';
-      completedSectionOpenState.delete(note.id);
-      if (inlineInput instanceof HTMLInputElement) {
-        inlineInput.value = '';
-      }
-      return;
-    }
-
     section.hidden = false;
 
+    const todos = Array.isArray(note.todos) ? note.todos : [];
     const pending = todos.filter((todo) => !todo.completed);
     const completed = todos.filter((todo) => todo.completed);
 
@@ -736,7 +758,10 @@
       pendingList.appendChild(createTodoListItem(todo));
     });
 
-    if (pending.length === 0) {
+    if (pending.length === 0 && completed.length === 0) {
+      emptyMessage.hidden = false;
+      emptyMessage.textContent = 'No to-dos yet. Use the link below to add one.';
+    } else if (pending.length === 0) {
       emptyMessage.hidden = false;
       emptyMessage.textContent = 'All to-dos are done. Nicely handled!';
     } else {
@@ -762,9 +787,9 @@
       }
     }
 
-    if (inlineInput instanceof HTMLInputElement) {
-      inlineInput.value = '';
-    }
+    inlineForm.classList.add('note__todo-inline-form--collapsed');
+    inlineToggle.classList.add('note__todo-inline-toggle--hidden');
+    inlineForm.reset();
   }
 
   function createTodoListItem(todo) {
@@ -816,12 +841,12 @@
           : `Mark "${todo.text}" as priority`
       );
 
-      const icon = document.createElement('span');
-      icon.className = 'note__todo-priority-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = '⚑';
+      const priorityIcon = document.createElement('span');
+      priorityIcon.className = 'note__todo-priority-icon';
+      priorityIcon.setAttribute('aria-hidden', 'true');
+      priorityIcon.textContent = '⚑';
 
-      priorityButton.appendChild(icon);
+      priorityButton.appendChild(priorityIcon);
       actions.appendChild(priorityButton);
     }
 
@@ -830,129 +855,16 @@
     removeButton.className = 'note__todo-remove';
     removeButton.title = `Delete "${todo.text}"`;
     removeButton.setAttribute('aria-label', `Delete "${todo.text}"`);
-    removeButton.textContent = 'Delete';
 
+    const removeIcon = document.createElement('span');
+    removeIcon.className = 'note__todo-remove-icon';
+    removeIcon.setAttribute('aria-hidden', 'true');
+    removeIcon.textContent = '🗑️';
+
+    removeButton.appendChild(removeIcon);
     actions.appendChild(removeButton);
+
     item.appendChild(actions);
-
-    return item;
-  }
-
-  function renderTodos(section, note) {
-    if (!section) {
-      return;
-    }
-
-    const pendingList = section.querySelector('.note__todo-list--pending');
-    const completedList = section.querySelector('.note__todo-list--done');
-    const emptyMessage = section.querySelector('.note__todo-empty');
-    const completedDetails = section.querySelector('.note__todo-completed');
-    const completedCount = section.querySelector('.note__todo-completed-count');
-
-    if (!pendingList || !completedList || !emptyMessage || !completedDetails || !completedCount) {
-      return;
-    }
-
-    pendingList.innerHTML = '';
-    completedList.innerHTML = '';
-
-    const todos = Array.isArray(note.todos) ? note.todos : [];
-
-    if (todos.length === 0) {
-      section.hidden = true;
-      emptyMessage.hidden = true;
-      completedDetails.hidden = true;
-      completedDetails.open = false;
-      completedCount.textContent = '0';
-      completedSectionOpenState.delete(note.id);
-      return;
-    }
-
-    section.hidden = false;
-
-    const pending = todos.filter((todo) => !todo.completed);
-    const completed = todos.filter((todo) => todo.completed);
-
-    pending.forEach((todo) => {
-      pendingList.appendChild(createTodoListItem(todo));
-    });
-
-    emptyMessage.hidden = pending.length !== 0;
-
-    if (completed.length === 0) {
-      completedDetails.hidden = true;
-      completedDetails.open = false;
-      completedCount.textContent = '0';
-      completedSectionOpenState.delete(note.id);
-    } else {
-      completedDetails.hidden = false;
-      completedCount.textContent = String(completed.length);
-      completed.forEach((todo) => {
-        completedList.appendChild(createTodoListItem(todo));
-      });
-
-      if (completedSectionOpenState.has(note.id)) {
-        completedDetails.open = true;
-      } else {
-        completedDetails.open = false;
-      }
-    }
-  }
-
-  function createTodoListItem(todo) {
-    const item = document.createElement('li');
-    item.className = 'note__todo-item';
-    item.dataset.todoId = todo.id;
-
-    if (todo.priority && !todo.completed) {
-      item.classList.add('note__todo-item--priority');
-    }
-
-    if (todo.completed) {
-      item.classList.add('note__todo-item--completed');
-    }
-
-    const label = document.createElement('label');
-    label.className = 'note__todo-label';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'note__todo-checkbox';
-    checkbox.checked = Boolean(todo.completed);
-
-    const text = document.createElement('span');
-    text.className = todo.completed
-      ? 'note__todo-text note__todo-text--completed'
-      : 'note__todo-text';
-    text.textContent = todo.text;
-
-    label.appendChild(checkbox);
-    label.appendChild(text);
-    item.appendChild(label);
-
-    if (!todo.completed) {
-      const priorityButton = document.createElement('button');
-      priorityButton.type = 'button';
-      priorityButton.className = 'note__todo-priority';
-      priorityButton.setAttribute('aria-pressed', String(Boolean(todo.priority)));
-      priorityButton.title = todo.priority
-        ? 'Remove priority'
-        : 'Mark as priority';
-      priorityButton.setAttribute(
-        'aria-label',
-        todo.priority
-          ? `Remove priority from "${todo.text}"`
-          : `Mark "${todo.text}" as priority`
-      );
-
-      const icon = document.createElement('span');
-      icon.className = 'note__todo-priority-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = '⚑';
-
-      priorityButton.appendChild(icon);
-      item.appendChild(priorityButton);
-    }
 
     return item;
   }
@@ -1003,13 +915,19 @@
   }
 
   function setTargetedNote(id) {
+    const previousTarget = targetedNoteId;
+
     if (!id) {
       targetedNoteId = null;
+      expandedTodoInlineInputs.clear();
       applyTargetedState();
       return;
     }
 
     targetedNoteId = id;
+    if (previousTarget && previousTarget !== id) {
+      expandedTodoInlineInputs.delete(previousTarget);
+    }
     applyTargetedState();
   }
 
@@ -1019,6 +937,7 @@
       .forEach((element) => element.classList.remove('note--targeted'));
 
     if (!targetedNoteId) {
+      updateInlineFormState();
       return;
     }
 
@@ -1031,6 +950,42 @@
     } else {
       targetedNoteId = null;
     }
+
+    updateInlineFormState();
+  }
+
+  function updateInlineFormState() {
+    notesList.querySelectorAll('.note').forEach((noteElement) => {
+      const noteId = noteElement.dataset.noteId;
+      if (!noteId) {
+        return;
+      }
+
+      const todosSection = noteElement.querySelector('.note__todos');
+      if (!todosSection) {
+        return;
+      }
+
+      const inlineForm = todosSection.querySelector('.note__todo-inline-form');
+      const inlineToggle = todosSection.querySelector('.note__todo-inline-toggle');
+      if (
+        !(inlineForm instanceof HTMLFormElement) ||
+        !(inlineToggle instanceof HTMLButtonElement)
+      ) {
+        return;
+      }
+
+      const shouldExpand =
+        expandedTodoInlineInputs.has(noteId) && targetedNoteId === noteId;
+
+      inlineForm.classList.toggle('note__todo-inline-form--collapsed', !shouldExpand);
+
+      if (shouldExpand) {
+        inlineToggle.classList.add('note__todo-inline-toggle--hidden');
+      } else {
+        inlineToggle.classList.remove('note__todo-inline-toggle--hidden');
+      }
+    });
   }
 
   function toggleTodoCompletion(noteId, todoId, completed) {

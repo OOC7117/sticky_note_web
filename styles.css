@@ -352,6 +352,10 @@ body {
   align-items: center;
 }
 
+.note__todo-inline-form--collapsed {
+  display: none;
+}
+
 .note__todo-inline-input {
   flex: 1 1 220px;
   padding: 0.65rem 0.75rem;
@@ -387,6 +391,41 @@ body {
   outline: none;
   transform: translateY(-1px);
   box-shadow: 0 8px 16px rgba(236, 152, 0, 0.3);
+}
+
+.note__todo-inline-toggle {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--accent-dark);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity var(--transition), transform var(--transition), color var(--transition);
+}
+
+.note__todo-inline-toggle:hover,
+.note__todo-inline-toggle:focus-visible {
+  outline: none;
+  color: var(--accent);
+}
+
+.note:hover .note__todo-inline-toggle,
+.note.note--focused .note__todo-inline-toggle,
+.note.note--targeted .note__todo-inline-toggle,
+.note:focus-within .note__todo-inline-toggle {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.note__todo-inline-toggle--hidden {
+  display: none;
 }
 
 .note__todo-list {
@@ -483,18 +522,26 @@ body {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font: inherit;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  padding: 0.25rem;
+  border-radius: 999px;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition), color var(--transition), transform var(--transition);
 }
 
 .note__todo-remove:hover,
 .note__todo-remove:focus-visible {
   outline: none;
-  background: rgba(31, 41, 51, 0.08);
+  background: rgba(31, 41, 51, 0.1);
   color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.note__todo-remove-icon {
+  pointer-events: none;
 }
 
 .note__todo-empty {
@@ -557,7 +604,7 @@ body {
 
 .note.note--targeted .note__card,
 .note:focus-visible .note__card {
-  box-shadow: var(--shadow), 0 0 0 3px rgba(255, 177, 0, 0.35);
+  box-shadow: var(--shadow), 0 0 0 3px var(--card-border);
 }
 
 .visually-hidden {
@@ -572,7 +619,7 @@ body {
 }
 
 .note--highlight .note__card {
-  outline: 3px solid rgba(255, 177, 0, 0.6);
+  outline: 3px solid var(--card-border);
 }
 
 .note--dragging .note__card {
