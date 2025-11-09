@@ -140,6 +140,30 @@
     }
   });
 
+  document.addEventListener('click', (event) => {
+    if (!targetedNoteId) {
+      return;
+    }
+
+    if (event.target instanceof Element && event.target.closest('.note')) {
+      return;
+    }
+
+    setTargetedNote(null);
+  });
+
+  document.addEventListener('focusin', (event) => {
+    if (!targetedNoteId) {
+      return;
+    }
+
+    if (event.target instanceof Element && event.target.closest('.note')) {
+      return;
+    }
+
+    setTargetedNote(null);
+  });
+
   undoButton.addEventListener('click', () => {
     if (!lastDeletedNote) {
       return;
@@ -184,8 +208,7 @@
       event.dataTransfer.dropEffect = 'move';
     }
 
-    const noteElement = event.target.closest('.note');
-    updateDropIndicator(noteElement, event.clientY);
+    updateDropIndicator(event.clientY);
   });
 
   notesList.addEventListener('drop', (event) => {
@@ -195,13 +218,10 @@
 
     event.preventDefault();
 
-    const dropTarget = event.target.closest('.note');
+    const { element: dropTarget, insertBefore } = determineDropPosition(event.clientY);
     const targetId = dropTarget ? dropTarget.dataset.noteId : null;
-    const shouldInsertBefore = dropTarget
-      ? event.clientY < dropTarget.getBoundingClientRect().top + dropTarget.offsetHeight / 2
-      : false;
 
-    reorderNotes(draggedNoteId, targetId, shouldInsertBefore);
+    reorderNotes(draggedNoteId, targetId, insertBefore);
     clearDragIndicators();
     draggedNoteId = null;
     renderNotes();
@@ -600,7 +620,7 @@
       });
   }
 
-  function updateDropIndicator(targetElement, pointerY) {
+  function updateDropIndicator(pointerY) {
     notesList
       .querySelectorAll('.note--drop-before, .note--drop-after')
       .forEach((element) => {
@@ -608,16 +628,41 @@
         element.classList.remove('note--drop-after');
       });
 
-    if (!targetElement || targetElement.dataset.noteId === draggedNoteId) {
+    const { element, insertBefore } = determineDropPosition(pointerY);
+    if (!element) {
       return;
     }
 
-    const bounds = targetElement.getBoundingClientRect();
-    const shouldInsertBefore = pointerY < bounds.top + bounds.height / 2;
+    element.classList.add(insertBefore ? 'note--drop-before' : 'note--drop-after');
+  }
 
-    targetElement.classList.add(
-      shouldInsertBefore ? 'note--drop-before' : 'note--drop-after'
-    );
+  function determineDropPosition(pointerY) {
+    if (typeof pointerY !== 'number') {
+      return { element: null, insertBefore: false };
+    }
+
+    const noteElements = Array.from(notesList.querySelectorAll('.note'));
+
+    let fallbackElement = null;
+    let fallbackInsertBefore = false;
+
+    for (const element of noteElements) {
+      if (element.dataset.noteId === draggedNoteId) {
+        continue;
+      }
+
+      const bounds = element.getBoundingClientRect();
+      const midpoint = bounds.top + bounds.height / 2;
+
+      if (pointerY < midpoint) {
+        return { element, insertBefore: true };
+      }
+
+      fallbackElement = element;
+      fallbackInsertBefore = false;
+    }
+
+    return { element: fallbackElement, insertBefore: fallbackInsertBefore };
   }
 
   function formatRelativeDate(date) {
