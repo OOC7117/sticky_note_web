@@ -7,8 +7,10 @@
     { id: 'sky', label: 'Calm sky' },
     { id: 'mist', label: 'Cool mist' },
   ];
+  const NOTE_COLOR_IDS = new Set(NOTE_COLORS.map((color) => color.id));
   const LEGACY_COLOR_MAP = {
     lavender: 'mist',
+    purple: 'mist',
   };
   const DEFAULT_NOTE_COLOR = NOTE_COLORS[0].id;
 
@@ -151,12 +153,12 @@
     renderNotes();
   });
 
-  function createNote({ title, content, color = DEFAULT_NOTE_COLOR }) {
+  function createNote({ title, content, color }) {
     const newNote = {
       id: crypto.randomUUID(),
       title,
       content,
-      color,
+      color: normalizeNoteColor(color),
       updatedAt: new Date().toISOString(),
     };
 
@@ -165,9 +167,14 @@
   }
 
   function updateNote(id, changes) {
+    const nextChanges = { ...changes };
+    if (Object.prototype.hasOwnProperty.call(nextChanges, 'color')) {
+      nextChanges.color = normalizeNoteColor(nextChanges.color);
+    }
+
     notes = notes.map((note) =>
       note.id === id
-        ? { ...note, ...changes, updatedAt: new Date().toISOString() }
+        ? { ...note, ...nextChanges, updatedAt: new Date().toISOString() }
         : note
     );
     persistNotes();
@@ -214,16 +221,10 @@
 
       return parsed
         .filter((note) => note && typeof note.id === 'string')
-        .map((note) => {
-          const rawColor =
-            typeof note.color === 'string' ? LEGACY_COLOR_MAP[note.color] || note.color : null;
-          const hasValidColor = rawColor && NOTE_COLORS.some((c) => c.id === rawColor);
-
-          return {
-            ...note,
-            color: hasValidColor ? rawColor : DEFAULT_NOTE_COLOR,
-          };
-        });
+        .map((note) => ({
+          ...note,
+          color: normalizeNoteColor(note.color),
+        }));
     } catch (error) {
       console.error('Failed to load notes from storage', error);
       return [];
@@ -263,7 +264,7 @@
 
       node.dataset.noteId = note.id;
       node.setAttribute('draggable', 'true');
-      node.dataset.color = note.color || DEFAULT_NOTE_COLOR;
+      node.dataset.color = normalizeNoteColor(note.color);
       titleEl.textContent = note.title;
       contentEl.textContent = note.content;
 
@@ -293,11 +294,13 @@
 
     container.innerHTML = '';
 
+    const activeColor = normalizeNoteColor(note.color);
+
     NOTE_COLORS.forEach((color) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'note__color';
-      const isActive = color.id === (note.color || DEFAULT_NOTE_COLOR);
+      const isActive = color.id === activeColor;
       if (isActive) {
         button.classList.add('note__color--active');
       }
@@ -417,5 +420,14 @@
       month: 'short',
       day: 'numeric',
     });
+  }
+  function normalizeNoteColor(color) {
+    if (typeof color !== 'string') {
+      return DEFAULT_NOTE_COLOR;
+    }
+
+    const trimmed = color.trim().toLowerCase();
+    const migrated = LEGACY_COLOR_MAP[trimmed] || trimmed;
+    return NOTE_COLOR_IDS.has(migrated) ? migrated : DEFAULT_NOTE_COLOR;
   }
 })();
