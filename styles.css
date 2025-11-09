@@ -177,6 +177,31 @@ body {
   position: relative;
 }
 
+.note[data-color='sunny'] .note__card {
+  --card-color: #fff7cd;
+  --card-border: #f0d46c;
+}
+
+.note[data-color='blush'] .note__card {
+  --card-color: #ffe7ef;
+  --card-border: #f5bfd2;
+}
+
+.note[data-color='mint'] .note__card {
+  --card-color: #e9f7ef;
+  --card-border: #b7e2c3;
+}
+
+.note[data-color='sky'] .note__card {
+  --card-color: #e8f3ff;
+  --card-border: #b8d8ff;
+}
+
+.note[data-color='mist'] .note__card {
+  --card-color: #f1f5f9;
+  --card-border: #d0dce6;
+}
+
 .note__header {
   display: flex;
   justify-content: space-between;
@@ -201,6 +226,66 @@ body {
   color: inherit;
 }
 
+.note__palette {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.note__color {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 41, 51, 0.1);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+
+.note__color:hover,
+.note__color:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(31, 41, 51, 0.12);
+}
+
+.note__color::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.note__color--active {
+  border-color: rgba(31, 41, 51, 0.45);
+  box-shadow: 0 0 0 2px rgba(31, 41, 51, 0.14);
+}
+
+.note__color[data-color='sunny'] {
+  color: #f0d46c;
+}
+
+.note__color[data-color='blush'] {
+  color: #f5bfd2;
+}
+
+.note__color[data-color='mint'] {
+  color: #b7e2c3;
+}
+
+.note__color[data-color='sky'] {
+  color: #b8d8ff;
+}
+
+.note__color[data-color='mist'] {
+  color: #d0dce6;
+}
+
 .note__action:hover {
   background: rgba(0, 0, 0, 0.12);
   transform: translateY(-1px);
@@ -223,6 +308,17 @@ body {
 
 .note__timestamp {
   color: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .note--highlight .note__card {

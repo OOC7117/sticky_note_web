@@ -1,5 +1,16 @@
 (() => {
   const STORAGE_KEY = 'sticky-notes-app';
+  const NOTE_COLORS = [
+    { id: 'sunny', label: 'Warm yellow' },
+    { id: 'blush', label: 'Soft blush' },
+    { id: 'mint', label: 'Fresh mint' },
+    { id: 'sky', label: 'Calm sky' },
+    { id: 'mist', label: 'Cool mist' },
+  ];
+  const LEGACY_COLOR_MAP = {
+    lavender: 'mist',
+  };
+  const DEFAULT_NOTE_COLOR = NOTE_COLORS[0].id;
 
   const noteForm = document.querySelector('#note-form');
   const titleInput = document.querySelector('#note-title');
@@ -46,6 +57,24 @@
   });
 
   notesList.addEventListener('click', (event) => {
+    const colorButton = event.target.closest('button.note__color');
+    if (colorButton) {
+      const noteElement = colorButton.closest('[data-note-id]');
+      if (!noteElement) {
+        return;
+      }
+
+      const noteId = noteElement.dataset.noteId;
+      const selectedColor = colorButton.dataset.color;
+      if (!selectedColor) {
+        return;
+      }
+
+      updateNote(noteId, { color: selectedColor });
+      renderNotes();
+      return;
+    }
+
     const actionButton = event.target.closest('button.note__action');
     if (!actionButton) {
       return;
@@ -122,11 +151,12 @@
     renderNotes();
   });
 
-  function createNote({ title, content }) {
+  function createNote({ title, content, color = DEFAULT_NOTE_COLOR }) {
     const newNote = {
       id: crypto.randomUUID(),
       title,
       content,
+      color,
       updatedAt: new Date().toISOString(),
     };
 
@@ -134,10 +164,10 @@
     persistNotes();
   }
 
-  function updateNote(id, { title, content }) {
+  function updateNote(id, changes) {
     notes = notes.map((note) =>
       note.id === id
-        ? { ...note, title, content, updatedAt: new Date().toISOString() }
+        ? { ...note, ...changes, updatedAt: new Date().toISOString() }
         : note
     );
     persistNotes();
@@ -182,7 +212,18 @@
         return [];
       }
 
-      return parsed.filter((note) => note && typeof note.id === 'string');
+      return parsed
+        .filter((note) => note && typeof note.id === 'string')
+        .map((note) => {
+          const rawColor =
+            typeof note.color === 'string' ? LEGACY_COLOR_MAP[note.color] || note.color : null;
+          const hasValidColor = rawColor && NOTE_COLORS.some((c) => c.id === rawColor);
+
+          return {
+            ...note,
+            color: hasValidColor ? rawColor : DEFAULT_NOTE_COLOR,
+          };
+        });
     } catch (error) {
       console.error('Failed to load notes from storage', error);
       return [];
@@ -218,9 +259,11 @@
       const titleEl = node.querySelector('.note__title');
       const contentEl = node.querySelector('.note__content');
       const timestampEl = node.querySelector('.note__timestamp');
+      const paletteEl = node.querySelector('.note__palette');
 
       node.dataset.noteId = note.id;
       node.setAttribute('draggable', 'true');
+      node.dataset.color = note.color || DEFAULT_NOTE_COLOR;
       titleEl.textContent = note.title;
       contentEl.textContent = note.content;
 
@@ -228,7 +271,46 @@
       timestampEl.dateTime = updatedDate.toISOString();
       timestampEl.textContent = `Updated ${formatRelativeDate(updatedDate)}`;
 
+      renderPalette(paletteEl, note);
+
       notesList.appendChild(node);
+    });
+
+    if (editingNoteId) {
+      const editingElement = notesList.querySelector(
+        `[data-note-id="${editingNoteId}"]`
+      );
+      if (editingElement) {
+        editingElement.classList.add('note--highlight');
+      }
+    }
+  }
+
+  function renderPalette(container, note) {
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = '';
+
+    NOTE_COLORS.forEach((color) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'note__color';
+      const isActive = color.id === (note.color || DEFAULT_NOTE_COLOR);
+      if (isActive) {
+        button.classList.add('note__color--active');
+      }
+      button.dataset.color = color.id;
+      button.setAttribute('aria-pressed', String(isActive));
+      button.title = color.label;
+
+      const label = document.createElement('span');
+      label.className = 'visually-hidden';
+      label.textContent = color.label;
+
+      button.appendChild(label);
+      container.appendChild(button);
     });
   }
 
