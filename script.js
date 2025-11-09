@@ -29,6 +29,11 @@
   let notes = loadNotes();
   let editingNoteId = null;
   let draggedNoteId = null;
+  const undoNotifications = [];
+
+  if (undoStackContainer) {
+    undoStackContainer.setAttribute('aria-hidden', 'true');
+  }
   let lastDeletedNote = null;
   let undoTimerId = null;
   let targetedNoteId = null;
@@ -50,6 +55,7 @@
       createNote({ title, content });
     }
 
+    clearAllUndoNotifications();
     resetForm();
     renderNotes();
   });
@@ -291,6 +297,7 @@
       return;
     }
 
+    clearAllUndoNotifications();
     editingNoteId = note.id;
     titleInput.value = note.title;
     contentInput.value = note.content;
@@ -367,6 +374,29 @@
       });
     }
 
+
+    if (message) {
+      message.textContent = `Deleted "${deleted.note.title}"`;
+    }
+
+    const notification = {
+      id: crypto.randomUUID(),
+      deleted,
+      element: node,
+    };
+
+    if (undoButton) {
+      undoButton.addEventListener('click', () => {
+        handleUndoAction(notification.id);
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        dismissUndoNotification(notification.id);
+      });
+    }
+
     undoNotifications.push(notification);
     undoStackContainer.appendChild(node);
     updateUndoStackPositions();
@@ -412,6 +442,21 @@
     if (shouldRefocus) {
       focusFrontUndoButton();
     }
+  }
+
+  function clearAllUndoNotifications() {
+    if (!undoStackContainer || undoNotifications.length === 0) {
+      return;
+    }
+
+    undoNotifications.forEach((notification) => {
+      if (notification.element && notification.element.parentElement) {
+        notification.element.parentElement.removeChild(notification.element);
+      }
+    });
+
+    undoNotifications.length = 0;
+    updateUndoStackPositions();
   }
 
   function updateUndoStackPositions() {

@@ -384,6 +384,10 @@ body {
   bottom: 1.5rem;
   display: grid;
   gap: 0;
+  justify-items: center;
+  align-items: center;
+  width: min(100%, 24rem);
+  transform: translateX(-50%);
   justify-items: end;
   width: min(100%, 24rem);
   pointer-events: none;
@@ -490,6 +494,7 @@ body {
   }
 
   .undo-stack {
+    width: calc(100% - 2rem);
     left: 50%;
     right: auto;
     width: calc(100% - 2rem);
