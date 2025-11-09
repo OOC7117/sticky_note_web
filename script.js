@@ -838,6 +838,125 @@
     return item;
   }
 
+  function renderTodos(section, note) {
+    if (!section) {
+      return;
+    }
+
+    const pendingList = section.querySelector('.note__todo-list--pending');
+    const completedList = section.querySelector('.note__todo-list--done');
+    const emptyMessage = section.querySelector('.note__todo-empty');
+    const completedDetails = section.querySelector('.note__todo-completed');
+    const completedCount = section.querySelector('.note__todo-completed-count');
+
+    if (!pendingList || !completedList || !emptyMessage || !completedDetails || !completedCount) {
+      return;
+    }
+
+    pendingList.innerHTML = '';
+    completedList.innerHTML = '';
+
+    const todos = Array.isArray(note.todos) ? note.todos : [];
+
+    if (todos.length === 0) {
+      section.hidden = true;
+      emptyMessage.hidden = true;
+      completedDetails.hidden = true;
+      completedDetails.open = false;
+      completedCount.textContent = '0';
+      completedSectionOpenState.delete(note.id);
+      return;
+    }
+
+    section.hidden = false;
+
+    const pending = todos.filter((todo) => !todo.completed);
+    const completed = todos.filter((todo) => todo.completed);
+
+    pending.forEach((todo) => {
+      pendingList.appendChild(createTodoListItem(todo));
+    });
+
+    emptyMessage.hidden = pending.length !== 0;
+
+    if (completed.length === 0) {
+      completedDetails.hidden = true;
+      completedDetails.open = false;
+      completedCount.textContent = '0';
+      completedSectionOpenState.delete(note.id);
+    } else {
+      completedDetails.hidden = false;
+      completedCount.textContent = String(completed.length);
+      completed.forEach((todo) => {
+        completedList.appendChild(createTodoListItem(todo));
+      });
+
+      if (completedSectionOpenState.has(note.id)) {
+        completedDetails.open = true;
+      } else {
+        completedDetails.open = false;
+      }
+    }
+  }
+
+  function createTodoListItem(todo) {
+    const item = document.createElement('li');
+    item.className = 'note__todo-item';
+    item.dataset.todoId = todo.id;
+
+    if (todo.priority && !todo.completed) {
+      item.classList.add('note__todo-item--priority');
+    }
+
+    if (todo.completed) {
+      item.classList.add('note__todo-item--completed');
+    }
+
+    const label = document.createElement('label');
+    label.className = 'note__todo-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'note__todo-checkbox';
+    checkbox.checked = Boolean(todo.completed);
+
+    const text = document.createElement('span');
+    text.className = todo.completed
+      ? 'note__todo-text note__todo-text--completed'
+      : 'note__todo-text';
+    text.textContent = todo.text;
+
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    item.appendChild(label);
+
+    if (!todo.completed) {
+      const priorityButton = document.createElement('button');
+      priorityButton.type = 'button';
+      priorityButton.className = 'note__todo-priority';
+      priorityButton.setAttribute('aria-pressed', String(Boolean(todo.priority)));
+      priorityButton.title = todo.priority
+        ? 'Remove priority'
+        : 'Mark as priority';
+      priorityButton.setAttribute(
+        'aria-label',
+        todo.priority
+          ? `Remove priority from "${todo.text}"`
+          : `Mark "${todo.text}" as priority`
+      );
+
+      const icon = document.createElement('span');
+      icon.className = 'note__todo-priority-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = '⚑';
+
+      priorityButton.appendChild(icon);
+      item.appendChild(priorityButton);
+    }
+
+    return item;
+  }
+
   function renderPalette(container, note) {
     if (!container) {
       return;
