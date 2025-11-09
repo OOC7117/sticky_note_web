@@ -5,8 +5,13 @@
     { id: 'blush', label: 'Soft blush' },
     { id: 'mint', label: 'Fresh mint' },
     { id: 'sky', label: 'Calm sky' },
-    { id: 'lavender', label: 'Light lavender' },
+    { id: 'mist', label: 'Cool mist' },
   ];
+  const NOTE_COLOR_IDS = new Set(NOTE_COLORS.map((color) => color.id));
+  const LEGACY_COLOR_MAP = {
+    lavender: 'mist',
+    purple: 'mist',
+  };
   const DEFAULT_NOTE_COLOR = NOTE_COLORS[0].id;
 
   const noteForm = document.querySelector('#note-form');
@@ -18,9 +23,8 @@
   const notesList = document.querySelector('#notes-list');
   const emptyState = document.querySelector('#empty-state');
   const noteTemplate = document.querySelector('#note-template');
-  const undoSnackbar = document.querySelector('#undo-snackbar');
-  const undoMessage = document.querySelector('#undo-message');
-  const undoButton = document.querySelector('#undo-button');
+  const undoStackContainer = document.querySelector('#undo-stack');
+  const undoSnackbarTemplate = document.querySelector('#undo-snackbar-template');
 
   let notes = loadNotes();
   let editingNoteId = null;
@@ -203,12 +207,12 @@
     renderNotes();
   });
 
-  function createNote({ title, content, color = DEFAULT_NOTE_COLOR }) {
+  function createNote({ title, content, color }) {
     const newNote = {
       id: crypto.randomUUID(),
       title,
       content,
-      color,
+      color: normalizeNoteColor(color),
       updatedAt: new Date().toISOString(),
     };
 
@@ -217,9 +221,14 @@
   }
 
   function updateNote(id, changes) {
+    const nextChanges = { ...changes };
+    if (Object.prototype.hasOwnProperty.call(nextChanges, 'color')) {
+      nextChanges.color = normalizeNoteColor(nextChanges.color);
+    }
+
     notes = notes.map((note) =>
       note.id === id
-        ? { ...note, ...changes, updatedAt: new Date().toISOString() }
+        ? { ...note, ...nextChanges, updatedAt: new Date().toISOString() }
         : note
     );
     persistNotes();
@@ -294,10 +303,7 @@
         .filter((note) => note && typeof note.id === 'string')
         .map((note) => ({
           ...note,
-          color:
-            typeof note.color === 'string' && NOTE_COLORS.some((c) => c.id === note.color)
-              ? note.color
-              : DEFAULT_NOTE_COLOR,
+          color: normalizeNoteColor(note.color),
         }));
     } catch (error) {
       console.error('Failed to load notes from storage', error);
@@ -310,30 +316,117 @@
   }
 
   function showUndoNotification(deleted) {
-    const { note } = deleted;
-    lastDeletedNote = deleted;
-    undoMessage.textContent = `Deleted "${note.title}"`;
-    undoSnackbar.classList.add('undo-snackbar--visible');
-    undoSnackbar.removeAttribute('aria-hidden');
-
-    if (undoTimerId) {
-      clearTimeout(undoTimerId);
+    if (!undoStackContainer || !undoSnackbarTemplate) {
+      return;
     }
 
-    undoTimerId = window.setTimeout(() => {
-      clearUndoState();
-    }, 5000);
+    const node = undoSnackbarTemplate.content.firstElementChild.cloneNode(true);
+    const message = node.querySelector('.undo-snackbar__message');
+    const undoButton = node.querySelector('.undo-snackbar__action--undo');
+    const closeButton = node.querySelector('.undo-snackbar__close');
+
+    if (message) {
+      message.textContent = `Deleted "${deleted.note.title}"`;
+    }
+
+    const notification = {
+      id: crypto.randomUUID(),
+      deleted,
+      element: node,
+    };
+
+    if (undoButton) {
+      undoButton.addEventListener('click', () => {
+        handleUndoAction(notification.id);
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        dismissUndoNotification(notification.id);
+      });
+    }
+
+    undoNotifications.push(notification);
+    undoStackContainer.appendChild(node);
+    updateUndoStackPositions();
+
+    if (undoButton) {
+      window.requestAnimationFrame(() => {
+        undoButton.focus();
+      });
+    }
   }
 
-  function clearUndoState() {
-    if (undoTimerId) {
-      clearTimeout(undoTimerId);
-      undoTimerId = null;
+  function handleUndoAction(notificationId) {
+    const index = undoNotifications.findIndex((item) => item.id === notificationId);
+    if (index === -1) {
+      return;
     }
 
-    lastDeletedNote = null;
-    undoSnackbar.classList.remove('undo-snackbar--visible');
-    undoSnackbar.setAttribute('aria-hidden', 'true');
+    const { note, index: originalIndex } = undoNotifications[index].deleted;
+    const insertIndex = Math.min(originalIndex, notes.length);
+    notes = [...notes];
+    notes.splice(insertIndex, 0, note);
+    persistNotes();
+    renderNotes();
+    dismissUndoNotification(notificationId);
+  }
+
+  function dismissUndoNotification(notificationId) {
+    const index = undoNotifications.findIndex((item) => item.id === notificationId);
+    if (index === -1) {
+      return;
+    }
+
+    const [notification] = undoNotifications.splice(index, 1);
+    const shouldRefocus = notification.element
+      ? notification.element.contains(document.activeElement)
+      : false;
+    if (notification.element && notification.element.parentElement) {
+      notification.element.parentElement.removeChild(notification.element);
+    }
+
+    updateUndoStackPositions();
+
+    if (shouldRefocus) {
+      focusFrontUndoButton();
+    }
+  }
+
+  function updateUndoStackPositions() {
+    if (!undoStackContainer) {
+      return;
+    }
+
+    undoNotifications.forEach((notification, index) => {
+      if (!notification.element) {
+        return;
+      }
+
+      const stackIndex = undoNotifications.length - 1 - index;
+      const visualIndex = Math.min(stackIndex, 4);
+      notification.element.style.setProperty('--stack-index', `${stackIndex}`);
+      notification.element.style.setProperty('--stack-visual-index', `${visualIndex}`);
+    });
+
+    if (undoNotifications.length === 0) {
+      undoStackContainer.setAttribute('aria-hidden', 'true');
+    } else {
+      undoStackContainer.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function focusFrontUndoButton() {
+    const frontNotification = undoNotifications[undoNotifications.length - 1];
+    if (!frontNotification || !frontNotification.element) {
+      return;
+    }
+
+    const undoButton = frontNotification.element.querySelector('.undo-snackbar__action--undo');
+    if (undoButton) {
+      undoButton.focus();
+    }
   }
 
   function renderNotes() {
@@ -366,7 +459,7 @@
 
       node.dataset.noteId = note.id;
       node.setAttribute('draggable', 'true');
-      node.dataset.color = note.color || DEFAULT_NOTE_COLOR;
+      node.dataset.color = normalizeNoteColor(note.color);
       titleEl.textContent = note.title;
       contentEl.textContent = note.content;
 
@@ -398,11 +491,13 @@
 
     container.innerHTML = '';
 
+    const activeColor = normalizeNoteColor(note.color);
+
     NOTE_COLORS.forEach((color) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'note__color';
-      const isActive = color.id === (note.color || DEFAULT_NOTE_COLOR);
+      const isActive = color.id === activeColor;
       if (isActive) {
         button.classList.add('note__color--active');
       }
@@ -553,5 +648,14 @@
       month: 'short',
       day: 'numeric',
     });
+  }
+  function normalizeNoteColor(color) {
+    if (typeof color !== 'string') {
+      return DEFAULT_NOTE_COLOR;
+    }
+
+    const trimmed = color.trim().toLowerCase();
+    const migrated = LEGACY_COLOR_MAP[trimmed] || trimmed;
+    return NOTE_COLOR_IDS.has(migrated) ? migrated : DEFAULT_NOTE_COLOR;
   }
 })();
