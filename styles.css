@@ -197,9 +197,9 @@ body {
   --card-border: #b8d8ff;
 }
 
-.note[data-color='lavender'] .note__card {
-  --card-color: #f1ecff;
-  --card-border: #cbc2ff;
+.note[data-color='mist'] .note__card {
+  --card-color: #f1f5f9;
+  --card-border: #d0dce6;
 }
 
 .note__header {
@@ -219,6 +219,27 @@ body {
 .note__actions {
   display: flex;
   gap: 0.35rem;
+}
+
+.note__actions,
+.note__palette {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.note:hover .note__actions,
+.note:hover .note__palette,
+.note.note--focused .note__actions,
+.note.note--focused .note__palette,
+.note.note--targeted .note__actions,
+.note.note--targeted .note__palette,
+.note:focus-within .note__actions,
+.note:focus-within .note__palette {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .note__action {
@@ -282,8 +303,8 @@ body {
   color: #b8d8ff;
 }
 
-.note__color[data-color='lavender'] {
-  color: #cbc2ff;
+.note__color[data-color='mist'] {
+  color: #d0dce6;
 }
 
 .note__action:hover {
@@ -308,6 +329,11 @@ body {
 
 .note__timestamp {
   color: inherit;
+}
+
+.note.note--targeted .note__card,
+.note:focus-visible .note__card {
+  box-shadow: var(--shadow), 0 0 0 3px rgba(255, 177, 0, 0.35);
 }
 
 .visually-hidden {
@@ -354,7 +380,7 @@ body {
 
 .undo-stack {
   position: fixed;
-  left: 50%;
+  right: 1.5rem;
   bottom: 1.5rem;
   display: grid;
   gap: 0;
@@ -362,6 +388,8 @@ body {
   align-items: center;
   width: min(100%, 24rem);
   transform: translateX(-50%);
+  justify-items: end;
+  width: min(100%, 24rem);
   pointer-events: none;
   z-index: 1000;
 }
@@ -467,6 +495,11 @@ body {
 
   .undo-stack {
     width: calc(100% - 2rem);
+    left: 50%;
+    right: auto;
+    width: calc(100% - 2rem);
+    transform: translateX(-50%);
+    align-items: center;
   }
 
   .undo-snackbar {

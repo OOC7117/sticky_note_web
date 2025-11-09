@@ -5,8 +5,13 @@
     { id: 'blush', label: 'Soft blush' },
     { id: 'mint', label: 'Fresh mint' },
     { id: 'sky', label: 'Calm sky' },
-    { id: 'lavender', label: 'Light lavender' },
+    { id: 'mist', label: 'Cool mist' },
   ];
+  const NOTE_COLOR_IDS = new Set(NOTE_COLORS.map((color) => color.id));
+  const LEGACY_COLOR_MAP = {
+    lavender: 'mist',
+    purple: 'mist',
+  };
   const DEFAULT_NOTE_COLOR = NOTE_COLORS[0].id;
 
   const noteForm = document.querySelector('#note-form');
@@ -29,6 +34,9 @@
   if (undoStackContainer) {
     undoStackContainer.setAttribute('aria-hidden', 'true');
   }
+  let lastDeletedNote = null;
+  let undoTimerId = null;
+  let targetedNoteId = null;
 
   renderNotes();
 
@@ -62,9 +70,13 @@
   });
 
   notesList.addEventListener('click', (event) => {
+    const noteElement = event.target.closest('[data-note-id]');
+    if (noteElement) {
+      setTargetedNote(noteElement.dataset.noteId);
+    }
+
     const colorButton = event.target.closest('button.note__color');
     if (colorButton) {
-      const noteElement = colorButton.closest('[data-note-id]');
       if (!noteElement) {
         return;
       }
@@ -85,7 +97,6 @@
       return;
     }
 
-    const noteElement = actionButton.closest('[data-note-id]');
     if (!noteElement) {
       return;
     }
@@ -97,6 +108,80 @@
     } else if (actionButton.classList.contains('note__action--delete')) {
       handleDelete(noteId);
     }
+  });
+
+  notesList.addEventListener('focusin', (event) => {
+    const noteElement = event.target.closest('.note');
+    if (!noteElement) {
+      return;
+    }
+
+    noteElement.classList.add('note--focused');
+  });
+
+  notesList.addEventListener('focusout', (event) => {
+    const noteElement = event.target.closest('.note');
+    if (!noteElement) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (!noteElement.contains(document.activeElement)) {
+        noteElement.classList.remove('note--focused');
+      }
+    });
+  });
+
+  notesList.addEventListener('keydown', (event) => {
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.classList.contains('note') &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      event.preventDefault();
+      const noteId = event.target.dataset.noteId;
+      if (noteId) {
+        setTargetedNote(noteId);
+      }
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!targetedNoteId) {
+      return;
+    }
+
+    if (event.target instanceof Element && event.target.closest('.note')) {
+      return;
+    }
+
+    setTargetedNote(null);
+  });
+
+  document.addEventListener('focusin', (event) => {
+    if (!targetedNoteId) {
+      return;
+    }
+
+    if (event.target instanceof Element && event.target.closest('.note')) {
+      return;
+    }
+
+    setTargetedNote(null);
+  });
+
+  undoButton.addEventListener('click', () => {
+    if (!lastDeletedNote) {
+      return;
+    }
+
+    const { note, index } = lastDeletedNote;
+    const insertIndex = Math.min(index, notes.length);
+    notes = [...notes];
+    notes.splice(insertIndex, 0, note);
+    persistNotes();
+    renderNotes();
+    clearUndoState();
   });
 
   notesList.addEventListener('dragstart', (event) => {
@@ -129,8 +214,7 @@
       event.dataTransfer.dropEffect = 'move';
     }
 
-    const noteElement = event.target.closest('.note');
-    updateDropIndicator(noteElement, event.clientY);
+    updateDropIndicator(event.clientY);
   });
 
   notesList.addEventListener('drop', (event) => {
@@ -140,24 +224,21 @@
 
     event.preventDefault();
 
-    const dropTarget = event.target.closest('.note');
+    const { element: dropTarget, insertBefore } = determineDropPosition(event.clientY);
     const targetId = dropTarget ? dropTarget.dataset.noteId : null;
-    const shouldInsertBefore = dropTarget
-      ? event.clientY < dropTarget.getBoundingClientRect().top + dropTarget.offsetHeight / 2
-      : false;
 
-    reorderNotes(draggedNoteId, targetId, shouldInsertBefore);
+    reorderNotes(draggedNoteId, targetId, insertBefore);
     clearDragIndicators();
     draggedNoteId = null;
     renderNotes();
   });
 
-  function createNote({ title, content, color = DEFAULT_NOTE_COLOR }) {
+  function createNote({ title, content, color }) {
     const newNote = {
       id: crypto.randomUUID(),
       title,
       content,
-      color,
+      color: normalizeNoteColor(color),
       updatedAt: new Date().toISOString(),
     };
 
@@ -166,9 +247,14 @@
   }
 
   function updateNote(id, changes) {
+    const nextChanges = { ...changes };
+    if (Object.prototype.hasOwnProperty.call(nextChanges, 'color')) {
+      nextChanges.color = normalizeNoteColor(nextChanges.color);
+    }
+
     notes = notes.map((note) =>
       note.id === id
-        ? { ...note, ...changes, updatedAt: new Date().toISOString() }
+        ? { ...note, ...nextChanges, updatedAt: new Date().toISOString() }
         : note
     );
     persistNotes();
@@ -178,6 +264,10 @@
     const deleted = deleteNote(id);
     if (!deleted) {
       return;
+    }
+
+    if (targetedNoteId === id) {
+      targetedNoteId = null;
     }
 
     if (editingNoteId === id) {
@@ -240,10 +330,7 @@
         .filter((note) => note && typeof note.id === 'string')
         .map((note) => ({
           ...note,
-          color:
-            typeof note.color === 'string' && NOTE_COLORS.some((c) => c.id === note.color)
-              ? note.color
-              : DEFAULT_NOTE_COLOR,
+          color: normalizeNoteColor(note.color),
         }));
     } catch (error) {
       console.error('Failed to load notes from storage', error);
@@ -264,6 +351,29 @@
     const message = node.querySelector('.undo-snackbar__message');
     const undoButton = node.querySelector('.undo-snackbar__action--undo');
     const closeButton = node.querySelector('.undo-snackbar__close');
+
+    if (message) {
+      message.textContent = `Deleted "${deleted.note.title}"`;
+    }
+
+    const notification = {
+      id: crypto.randomUUID(),
+      deleted,
+      element: node,
+    };
+
+    if (undoButton) {
+      undoButton.addEventListener('click', () => {
+        handleUndoAction(notification.id);
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        dismissUndoNotification(notification.id);
+      });
+    }
+
 
     if (message) {
       message.textContent = `Deleted "${deleted.note.title}"`;
@@ -399,6 +509,7 @@
 
     if (filteredNotes.length === 0) {
       emptyState.hidden = false;
+      applyTargetedState();
       return;
     }
 
@@ -413,7 +524,7 @@
 
       node.dataset.noteId = note.id;
       node.setAttribute('draggable', 'true');
-      node.dataset.color = note.color || DEFAULT_NOTE_COLOR;
+      node.dataset.color = normalizeNoteColor(note.color);
       titleEl.textContent = note.title;
       contentEl.textContent = note.content;
 
@@ -425,6 +536,8 @@
 
       notesList.appendChild(node);
     });
+
+    applyTargetedState();
 
     if (editingNoteId) {
       const editingElement = notesList.querySelector(
@@ -443,11 +556,13 @@
 
     container.innerHTML = '';
 
+    const activeColor = normalizeNoteColor(note.color);
+
     NOTE_COLORS.forEach((color) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'note__color';
-      const isActive = color.id === (note.color || DEFAULT_NOTE_COLOR);
+      const isActive = color.id === activeColor;
       if (isActive) {
         button.classList.add('note__color--active');
       }
@@ -477,6 +592,37 @@
     notesList
       .querySelectorAll('.note--highlight')
       .forEach((element) => element.classList.remove('note--highlight'));
+  }
+
+  function setTargetedNote(id) {
+    if (!id) {
+      targetedNoteId = null;
+      applyTargetedState();
+      return;
+    }
+
+    targetedNoteId = id;
+    applyTargetedState();
+  }
+
+  function applyTargetedState() {
+    notesList
+      .querySelectorAll('.note--targeted')
+      .forEach((element) => element.classList.remove('note--targeted'));
+
+    if (!targetedNoteId) {
+      return;
+    }
+
+    const targetedElement = notesList.querySelector(
+      `[data-note-id="${targetedNoteId}"]`
+    );
+
+    if (targetedElement) {
+      targetedElement.classList.add('note--targeted');
+    } else {
+      targetedNoteId = null;
+    }
   }
 
   function reorderNotes(draggedId, targetId, insertBeforeTarget) {
@@ -519,7 +665,7 @@
       });
   }
 
-  function updateDropIndicator(targetElement, pointerY) {
+  function updateDropIndicator(pointerY) {
     notesList
       .querySelectorAll('.note--drop-before, .note--drop-after')
       .forEach((element) => {
@@ -527,16 +673,41 @@
         element.classList.remove('note--drop-after');
       });
 
-    if (!targetElement || targetElement.dataset.noteId === draggedNoteId) {
+    const { element, insertBefore } = determineDropPosition(pointerY);
+    if (!element) {
       return;
     }
 
-    const bounds = targetElement.getBoundingClientRect();
-    const shouldInsertBefore = pointerY < bounds.top + bounds.height / 2;
+    element.classList.add(insertBefore ? 'note--drop-before' : 'note--drop-after');
+  }
 
-    targetElement.classList.add(
-      shouldInsertBefore ? 'note--drop-before' : 'note--drop-after'
-    );
+  function determineDropPosition(pointerY) {
+    if (typeof pointerY !== 'number') {
+      return { element: null, insertBefore: false };
+    }
+
+    const noteElements = Array.from(notesList.querySelectorAll('.note'));
+
+    let fallbackElement = null;
+    let fallbackInsertBefore = false;
+
+    for (const element of noteElements) {
+      if (element.dataset.noteId === draggedNoteId) {
+        continue;
+      }
+
+      const bounds = element.getBoundingClientRect();
+      const midpoint = bounds.top + bounds.height / 2;
+
+      if (pointerY < midpoint) {
+        return { element, insertBefore: true };
+      }
+
+      fallbackElement = element;
+      fallbackInsertBefore = false;
+    }
+
+    return { element: fallbackElement, insertBefore: fallbackInsertBefore };
   }
 
   function formatRelativeDate(date) {
@@ -567,5 +738,14 @@
       month: 'short',
       day: 'numeric',
     });
+  }
+  function normalizeNoteColor(color) {
+    if (typeof color !== 'string') {
+      return DEFAULT_NOTE_COLOR;
+    }
+
+    const trimmed = color.trim().toLowerCase();
+    const migrated = LEGACY_COLOR_MAP[trimmed] || trimmed;
+    return NOTE_COLOR_IDS.has(migrated) ? migrated : DEFAULT_NOTE_COLOR;
   }
 })();
