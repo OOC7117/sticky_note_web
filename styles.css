@@ -221,6 +221,27 @@ body {
   gap: 0.35rem;
 }
 
+.note__actions,
+.note__palette {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.note:hover .note__actions,
+.note:hover .note__palette,
+.note.note--focused .note__actions,
+.note.note--focused .note__palette,
+.note.note--targeted .note__actions,
+.note.note--targeted .note__palette,
+.note:focus-within .note__actions,
+.note:focus-within .note__palette {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
 .note__action {
   background: rgba(0, 0, 0, 0.05);
   color: inherit;
@@ -308,6 +329,11 @@ body {
 
 .note__timestamp {
   color: inherit;
+}
+
+.note.note--targeted .note__card,
+.note:focus-visible .note__card {
+  box-shadow: var(--shadow), 0 0 0 3px rgba(255, 177, 0, 0.35);
 }
 
 .visually-hidden {

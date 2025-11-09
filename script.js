@@ -29,11 +29,9 @@
   let notes = loadNotes();
   let editingNoteId = null;
   let draggedNoteId = null;
-  const undoNotifications = [];
-
-  if (undoStackContainer) {
-    undoStackContainer.setAttribute('aria-hidden', 'true');
-  }
+  let lastDeletedNote = null;
+  let undoTimerId = null;
+  let targetedNoteId = null;
 
   renderNotes();
 
@@ -66,9 +64,13 @@
   });
 
   notesList.addEventListener('click', (event) => {
+    const noteElement = event.target.closest('[data-note-id]');
+    if (noteElement) {
+      setTargetedNote(noteElement.dataset.noteId);
+    }
+
     const colorButton = event.target.closest('button.note__color');
     if (colorButton) {
-      const noteElement = colorButton.closest('[data-note-id]');
       if (!noteElement) {
         return;
       }
@@ -89,7 +91,6 @@
       return;
     }
 
-    const noteElement = actionButton.closest('[data-note-id]');
     if (!noteElement) {
       return;
     }
@@ -101,6 +102,56 @@
     } else if (actionButton.classList.contains('note__action--delete')) {
       handleDelete(noteId);
     }
+  });
+
+  notesList.addEventListener('focusin', (event) => {
+    const noteElement = event.target.closest('.note');
+    if (!noteElement) {
+      return;
+    }
+
+    noteElement.classList.add('note--focused');
+  });
+
+  notesList.addEventListener('focusout', (event) => {
+    const noteElement = event.target.closest('.note');
+    if (!noteElement) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (!noteElement.contains(document.activeElement)) {
+        noteElement.classList.remove('note--focused');
+      }
+    });
+  });
+
+  notesList.addEventListener('keydown', (event) => {
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.classList.contains('note') &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      event.preventDefault();
+      const noteId = event.target.dataset.noteId;
+      if (noteId) {
+        setTargetedNote(noteId);
+      }
+    }
+  });
+
+  undoButton.addEventListener('click', () => {
+    if (!lastDeletedNote) {
+      return;
+    }
+
+    const { note, index } = lastDeletedNote;
+    const insertIndex = Math.min(index, notes.length);
+    notes = [...notes];
+    notes.splice(insertIndex, 0, note);
+    persistNotes();
+    renderNotes();
+    clearUndoState();
   });
 
   notesList.addEventListener('dragstart', (event) => {
@@ -187,6 +238,10 @@
     const deleted = deleteNote(id);
     if (!deleted) {
       return;
+    }
+
+    if (targetedNoteId === id) {
+      targetedNoteId = null;
     }
 
     if (editingNoteId === id) {
@@ -389,6 +444,7 @@
 
     if (filteredNotes.length === 0) {
       emptyState.hidden = false;
+      applyTargetedState();
       return;
     }
 
@@ -415,6 +471,8 @@
 
       notesList.appendChild(node);
     });
+
+    applyTargetedState();
 
     if (editingNoteId) {
       const editingElement = notesList.querySelector(
@@ -469,6 +527,37 @@
     notesList
       .querySelectorAll('.note--highlight')
       .forEach((element) => element.classList.remove('note--highlight'));
+  }
+
+  function setTargetedNote(id) {
+    if (!id) {
+      targetedNoteId = null;
+      applyTargetedState();
+      return;
+    }
+
+    targetedNoteId = id;
+    applyTargetedState();
+  }
+
+  function applyTargetedState() {
+    notesList
+      .querySelectorAll('.note--targeted')
+      .forEach((element) => element.classList.remove('note--targeted'));
+
+    if (!targetedNoteId) {
+      return;
+    }
+
+    const targetedElement = notesList.querySelector(
+      `[data-note-id="${targetedNoteId}"]`
+    );
+
+    if (targetedElement) {
+      targetedElement.classList.add('note--targeted');
+    } else {
+      targetedNoteId = null;
+    }
   }
 
   function reorderNotes(draggedId, targetId, insertBeforeTarget) {
